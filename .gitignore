@@ -1,0 +1,36 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Datasets (large files)
+ai/dataset/*.csv
+fault_simulator/*.csv
+
+# MLflow runs
+ai/models/mlruns/
+ai/models/mlflow.db
+ai/models/mlflow_artifacts/
+
+# Large Model files
+ai/models/saved_models/random_forest.pkl
+
+# Processed npz
+ai/data processing/data/processed/*.npz
+
+# Joblib general exclusion except processed encoders & scalers
+*.joblib
+!ai/data processing/data/processed/scaler.joblib
+!ai/data processing/data/processed/substation_encoder.joblib
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCP Youssoufia 60 kV SCADA Digital Twin</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- HEADER -->
+    <header class="scada-header">
+        <div class="header-left">
+            <div class="scada-logo" style="background: transparent; box-shadow: none; width: auto; height: 40px;"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/OCP_Group.svg/1920px-OCP_Group.svg.png" alt="OCP Logo" style="height: 100%; object-fit: contain;"></div>
+            <div>
+                <h1 class="header-title">OCP SCADA Digital Twin</h1>
+                <p class="header-subtitle">Youssoufia 60 kV HTB Substation Network & AI Protection System</p>
+            </div>
+        </div>
+
+        <div class="header-center">
+            <div class="system-status-badge" id="systemStatusBadge">
+                <span class="status-dot green" id="statusDot"></span>
+                <span id="statusText">SYSTEM RUNNING</span>
+            </div>
+        </div>
+
+        <div class="header-controls">
+            <button class="btn btn-primary" id="btnPlayPause"><svg style="vertical-align: middle; margin-right: 4px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Pause</button>
+            <button class="btn btn-secondary" id="btnStep"><svg style="vertical-align: middle; margin-right: 4px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg> Step</button>
+            <button class="btn btn-danger" id="btnOpenFaultModal"><svg style="vertical-align: middle; margin-right: 4px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> Inject Fault</button>
+        </div>
+    </header>
+
+    <!-- KPI STRIP -->
+    <section class="kpi-strip">
+        <div class="kpi-card" style="border-left-color: #006837;">
+            <div class="kpi-label">HV Bus Voltage</div>
+            <div class="kpi-value" id="kpiHv">59.80 <span class="kpi-unit">kV</span></div>
+        </div>
+        <div class="kpi-card" style="border-left-color: #008B46;">
+            <div class="kpi-label">LV Bus Voltage</div>
+            <div class="kpi-value" id="kpiLv">5.48 <span class="kpi-unit">kV</span></div>
+        </div>
+        <div class="kpi-card" style="border-left-color: #E11D48;">
+            <div class="kpi-label">Substation Current</div>
+            <div class="kpi-value" id="kpiCurrent">120.5 <span class="kpi-unit">A</span></div>
+        </div>
+        <div class="kpi-card" style="border-left-color: #8DC63F;">
+            <div class="kpi-label">Active Power (P)</div>
+            <div class="kpi-value" id="kpiP">6.50 <span class="kpi-unit">MW</span></div>
+        </div>
+        <div class="kpi-card" style="border-left-color: #B4D43D;">
+            <div class="kpi-label">Reactive Power (Q)</div>
+            <div class="kpi-value" id="kpiQ">2.10 <span class="kpi-unit">Mvar</span></div>
+        </div>
+        <div class="kpi-card" style="border-left-color: #005C3A;">
+            <div class="kpi-label">Grid Frequency</div>
+            <div class="kpi-value" id="kpiFreq">50.00 <span class="kpi-unit">Hz</span></div>
+        </div>
+        <div class="kpi-card" style="border-left-color: #D97706;" id="kpiLoadCard">
+            <div class="kpi-label">Transformer Load</div>
+            <div class="kpi-value" id="kpiLoad">52.0 <span class="kpi-unit">%</span></div>
+        </div>
+        <div class="kpi-card" style="border-left-color: #6B7280;">
+            <div class="kpi-label">AI Engine Model</div>
+            <div class="kpi-value" style="color: #006837; display: flex; align-items: center; justify-content: space-between;">
+                <select id="kpiModelSelect" style="font-weight: 700; font-size: 13px; background: transparent; border: none; color: #006837; cursor: pointer; outline: none; padding: 0; font-family: inherit;">
+                    <option value="lstm">LSTM Optuna</option>
+                    <option value="gru">GRU Optuna</option>
+                    <option value="cnn">CNN-1D Optuna</option>
+                </select>
+                <span class="kpi-unit" style="margin-left: 6px;">ACTIVE</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- SUBSTATION QUICK SELECTOR BAR -->
+    <div class="sub-bar-container">
+        <div class="sub-bar-title">SUBSTATIONS</div>
+        <div class="sub-pills-wrapper" id="subPills">
+            <!-- Dynamically populated substation pills -->
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD CONTENT -->
+    <main class="main-content">
+        <!-- TABS HEADER -->
+        <div class="tab-nav">
+            <button class="tab-btn active" data-tab="tab-sld"><svg style="vertical-align: middle; margin-right: 4px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg> System State & SCADA Status</button>
+            <button class="tab-btn" data-tab="tab-trends"><svg style="vertical-align: middle; margin-right: 4px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg> Signal Curves & Live Trends</button>
+            <button class="tab-btn" data-tab="tab-ai"><svg style="vertical-align: middle; margin-right: 4px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8.01" y2="16"></line><line x1="16" y1="16" x2="16.01" y2="16"></line></svg> AI Diagnosis & Protection</button>
+            <button class="tab-btn" data-tab="tab-alarms"><svg style="vertical-align: middle; margin-right: 4px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg> Active Alarms & SOE Event Log</button>
+        </div>
+
+        <!-- TAB 1: SYSTEM SINGLE-LINE DIAGRAM & STATE -->
+        <div class="tab-pane active" id="tab-sld">
+            <div class="pane-grid-2">
+                <!-- SYSTEM STATE CARD -->
+                <div class="card state-card">
+                    <div class="card-header">
+                        <span class="card-title">System State Overview</span>
+                        <span class="badge" id="stateActiveSubBadge">Mine Mzinda DIS TR</span>
+                    </div>
+                    <div class="state-container" id="stateContainer" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #F8FAFC; border: 1px solid #CBD5E1; border-radius: 6px; padding: 20px; min-height: 250px;">
+                        <h2 id="sysStateText" style="font-size: 24px; font-weight: 800; color: #006837; margin-bottom: 8px;">Normal Operation</h2>
+                        <p id="sysStateSubText" style="font-size: 14px; color: #475569;">No faults detected by AI.</p>
+                        <div id="sysStateIcon" style="margin-top: 20px; color: #006837;">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ALL SUBSTATIONS TELEMETRY TABLE -->
+                <div class="card table-card">
+                    <div class="card-header">
+                        <span class="card-title">All Grid Substations SCADA Telemetry</span>
+                        <span class="sub-count" id="subTableCount">11 Substations</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="scada-table">
+                            <thead>
+                                <tr>
+                                    <th>Substation</th>
+                                    <th>HV (kV)</th>
+                                    <th>LV (kV)</th>
+                                    <th>Current (A)</th>
+                                    <th>Active P (MW)</th>
+                                    <th>Reactive Q (Mvar)</th>
+                                    <th>Load (%)</th>
+                                    <th>Freq (Hz)</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="telemetryTableBody">
+                                <!-- Telemetry rows injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: LIVE TREND CHARTS -->
+        <div class="tab-pane" id="tab-trends">
+            <div class="pane-header">
+                <h3 class="pane-title">Real-Time SCADA Signal Trends (<span id="trendSelectedSub">Mine Mzinda DIS TR</span>)</h3>
+            </div>
+            <div class="pane-grid-2">
+                <div class="card chart-card">
+                    <div class="card-title">Voltage Trends (V_HV & V_LV)</div>
+                    <div class="chart-container"><canvas id="chartVoltage"></canvas></div>
+                </div>
+                <div class="card chart-card">
+                    <div class="card-title">Current & Transformer Loading (%)</div>
+                    <div class="chart-container"><canvas id="chartCurrent"></canvas></div>
+                </div>
+                <div class="card chart-card">
+                    <div class="card-title">Active (P) & Reactive (Q) Power</div>
+                    <div class="chart-container"><canvas id="chartPower"></canvas></div>
+                </div>
+                <div class="card chart-card">
+                    <div class="card-title">System Frequency (Hz)</div>
+                    <div class="chart-container"><canvas id="chartFreq"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: AI DIAGNOSIS & PROTECTION -->
+        <div class="tab-pane" id="tab-ai">
+            <div class="pane-grid-2">
+                <!-- AI PREDICTION CARD -->
+                <div class="card ai-card" id="aiCard">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="card-title" id="aiModelCardTitle">AI Fault Diagnosis</span>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <select id="aiModelSelector" style="font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 4px; border: 1px solid #CBD5E1; background: #FFF; color: #0F172A; cursor: pointer;">
+                                <option value="lstm">LSTM Optuna (F1: 0.699)</option>
+                                <option value="gru">GRU Optuna (F1: 0.712)</option>
+                                <option value="cnn">CNN-1D Optuna (F1: 0.629)</option>
+                            </select>
+                            <span class="badge" id="aiSubBadge">Mine Mzinda DIS TR</span>
+                        </div>
+                    </div>
+
+                    <div class="ai-state-header">
+                        <div>
+                            <div class="ai-label-sm">PREDICTED STATE</div>
+                            <div class="ai-predicted-title" id="aiPredState">Normal Operation</div>
+                        </div>
+                        <div class="ai-conf-box">
+                            <div class="ai-label-sm">MODEL CONFIDENCE</div>
+                            <div class="ai-conf-val" id="aiConfVal">98.5%</div>
+                        </div>
+                    </div>
+
+                    <div class="ai-progress-bar">
+                        <div class="ai-progress-fill" id="aiProgressFill" style="width: 98.5%;"></div>
+                    </div>
+
+                    <div class="ai-details-grid">
+                        <div>
+                            <span class="detail-lbl">Target Substation:</span>
+                            <span class="detail-val" id="aiSubName">Mine Mzinda DIS TR</span>
+                        </div>
+                        <div>
+                            <span class="detail-lbl">Model Architecture:</span>
+                            <span class="detail-val" id="aiModelArch">LSTM (2 Layers, 128 Hidden)</span>
+                        </div>
+                        <div>
+                            <span class="detail-lbl">Rolling Window:</span>
+                            <span class="detail-val">20 Timesteps (22 Features)</span>
+                        </div>
+                        <div>
+                            <span class="detail-lbl">Relay Status:</span>
+                            <span class="detail-val" id="aiRelayStatus">NORMAL</span>
+                        </div>
+                    </div>
+
+                    <div class="ai-action-box">
+                        <div class="action-title">RECOMMENDED OPERATOR ACTION</div>
+                        <div class="action-desc" id="aiActionDesc">Grid operating nominally. No protective action required.</div>
+                    </div>
+                </div>
+
+                <!-- CLASS PROBABILITIES CHART -->
+                <div class="card chart-card">
+                    <div class="card-title" id="chartProbTitle">Multi-Class Probability Distribution (LSTM)</div>
+                    <div class="chart-container"><canvas id="chartProbabilities"></canvas></div>
+                </div>
+            </div>
+
+            <!-- SHAP WATERFALL CHART -->
+            <div class="card" style="margin-top: 16px;">
+                <div class="card-header">
+                    <span class="card-title">
+                        <svg style="vertical-align:middle;margin-right:6px;" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                        SHAP Feature Importance — AI Explanation (Selected Substation)
+                    </span>
+                    <span class="badge" id="shapSubBadge">—</span>
+                </div>
+                <p style="font-size:12px;color:#475569;margin:4px 0 12px 0;">
+                    Each bar shows how much a sensor reading <strong>pushed the model</strong> toward (positive) or away from (negative) the predicted fault class. Larger absolute values = stronger influence.
+                </p>
+                <div style="height:260px;position:relative;"><canvas id="chartShap"></canvas></div>
+            </div>
+
+            <!-- FEATURE INSPECTOR -->
+            <div class="card feature-inspector-card" style="margin-top: 16px;">
+                <div class="card-title">SCADA Telemetry Input Features (Fed to Scaler & Deep Learning Sequence Model)</div>
+                <div class="feature-grid" id="featureInspectorGrid">
+                    <!-- Dynamic feature tiles -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: ALARMS & SOE LOG -->
+        <div class="tab-pane" id="tab-alarms">
+            <div class="pane-grid-2">
+                <!-- ACTIVE ALARMS -->
+                <div class="card alarms-card">
+                    <div class="card-header">
+                        <span class="card-title">Active System Alarms & AI Fault Alerts</span>
+                        <span class="badge badge-danger" id="activeAlarmCountBadge">0 Active</span>
+                    </div>
+                    <div class="alarms-list" id="alarmsList">
+                        <div class="empty-state">No active alarms. System operating normally.</div>
+                    </div>
+                </div>
+
+                <!-- SOE LOG -->
+                <div class="card soe-card">
+                    <div class="card-header">
+                        <span class="card-title">Sequence of Events (SOE) Log</span>
+                        <input type="text" id="soeSearch" class="soe-search-input" placeholder="Search events...">
+                    </div>
+                    <div class="soe-log-container">
+                        <table class="soe-table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Event Description</th>
+                                </tr>
+                            </thead>
+                            <tbody id="soeTableBody">
+                                <!-- Event rows injected by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- FAULT INJECTION MODAL -->
+    <div class="modal-overlay" id="faultModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><svg style="vertical-align: middle; margin-right: 4px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> Inject SCADA Fault Event</h3>
+                <button class="modal-close" id="btnCloseFaultModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Target Substation</label>
+                    <select id="faultTargetSelect" class="form-control">
+                        <!-- Filled by JS -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Fault Type</label>
+                    <select id="faultTypeSelect" class="form-control">
+                        <option value="lg_fault">Line-to-Ground Fault (LG)</option>
+                        <option value="ll_fault">Line-to-Line Fault (LL)</option>
+                        <option value="overload">Thermal Overload</option>
+                        <option value="voltage_sag">Grid Voltage Sag</option>
+                        <option value="under_frequency">Under-Frequency (81U)</option>
+                        <option value="over_frequency">Over-Frequency (81O)</option>
+                        <option value="transformer_trip">Transformer Trip</option>
+                        <option value="breaker_trip">Breaker Trip</option>
+                        <option value="source_outage">Source Outage</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Duration (seconds)</label>
+                    <input type="number" id="faultDurationInput" class="form-control" value="15" min="1" max="300">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnClearFaultBtn">Clear Active Fault</button>
+                <button class="btn btn-danger" id="btnSubmitFault">Inject Fault</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
