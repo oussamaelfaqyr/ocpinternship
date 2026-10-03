@@ -292,7 +292,9 @@ def simulate_step_per_sub(net, current_step: int, sub_fault_map: dict) -> dict:
             if ftype in ["under_frequency", "over_frequency"]:
                 mode = "under" if ftype == "under_frequency" else "over"
                 duration = params.get("duration_steps", 60)
-                traj = generate_freq_trajectory(mode, duration, rng=_rng)
+                immediate = params.get("immediate_start", False)
+                traj = generate_freq_trajectory(mode, duration, rng=_rng,
+                                                immediate_start=immediate)
                 tracker.set_freq_trajectory(traj)
 
             stage_info = tracker.get_lifecycle_stage(current_step)

@@ -1,0 +1,26 @@
+# ==============================================================================
+# OCP Youssoufia 60 kV SCADA Digital Twin & AI Protection System
+# Python Dependencies
+# ==============================================================================
+
+# Backend REST Server
+Flask>=2.3.0
+requests>=2.31.0
+
+# Deep Learning & Physics Machine Learning
+torch>=2.0.0
+scikit-learn>=1.3.0
+joblib>=1.3.0
+optuna>=3.2.0
+
+# Power Grid Simulation & Numerics
+pandapower>=2.13.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Visualization & Data Analysis
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Machine Learning Lifecycle (Optional tracking)
+mlflow>=2.5.0

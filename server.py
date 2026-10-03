@@ -5,9 +5,10 @@ Flask Backend Server providing REST API endpoints for telemetry, AI diagnosis,
 fault injection, alarm management, and serving the HTML5/CSS3/JS Web UI.
 Automatically launches default browser upon start.
 
-AI Model : LSTM (lstm_optuna_best.pt)
-          input  → (1, window=20, features=22)
-          output → 8 fault classes
+AI Model : GRU Optuna E3-B (gru_optuna_e3b_best.pt)  [PRIMARY — Val F1: 0.7715]
+           Fallback: GRU Champion E3-B (gru_e3b.pt)   [Val F1: 0.7298]
+           input  → (1, window=20, features=35)
+           output → 8 fault classes
 """
 
 import os
@@ -41,6 +42,7 @@ class State:
         self.fault = "normal"
         self.fault_tgt = "Mine Mzinda DIS TR"
         self.fault_exp = 0
+        self.fault_duration = 30
         self.history = []
         self.alarms = []
         self.events = []
@@ -128,7 +130,29 @@ def step_simulation():
             # Reset the AI rolling window so it doesn't keep predicting the old fault
             state.classifier.reset_buffers()
 
-        tel = fs.simulate_step(state.net, current_step=t, active_fault=flt, target_sub=tgt)
+        # Build per-substation fault map with explicit params for frequency faults
+        if flt in ["under_frequency", "over_frequency", "voltage_sag", "source_outage"] \
+                and fs._TRAFO_SUBS:
+            # Grid-wide faults — apply to all substations with explicit duration
+            params = {
+                "duration_steps": state.fault_duration,
+                "immediate_start": True,  # jump to anomalous freq immediately
+            }
+            sub_fault_map = {sub: (flt, params) for sub in fs._TRAFO_SUBS}
+        elif flt != "normal" and fs._TRAFO_SUBS:
+            # Sub-specific fault
+            sub_fault_map = {
+                sub: (flt, {}) if sub == tgt else ("normal", {})
+                for sub in fs._TRAFO_SUBS
+            }
+        else:
+            sub_fault_map = None  # use simple API (normal or first step)
+
+        if sub_fault_map is not None:
+            tel = fs.simulate_step_per_sub(state.net, current_step=t, sub_fault_map=sub_fault_map)
+        else:
+            tel = fs.simulate_step(state.net, current_step=t, active_fault=flt, target_sub=tgt)
+
         ts = datetime.datetime.now().strftime("%H:%M:%S")
         state.telemetry = tel
 
@@ -136,8 +160,11 @@ def step_simulation():
         ai_out = state.classifier.predict_telemetry(tel)
         state.ai_result = ai_out
 
-        # SHAP explanations are not available in real-time for LSTM.
-        # The /api/shap endpoint returns {} (handled in fault_classifier.py).
+        # Compute real-time gradient-based feature attribution (SHAP) for selected substation
+        try:
+            state.shap_result = state.classifier.compute_shap(state.sel_sub)
+        except Exception:
+            state.shap_result = {}
 
         for sub, row in tel.items():
             state.history.append(dict(t=t, sub=sub, **row))
@@ -253,6 +280,8 @@ def inject_fault():
         state.fault_tgt = target_sub
         state.fault_exp = state.sim_step + duration
         state.running = True
+        # Store duration for use by step_simulation params
+        state.fault_duration = duration
 
     return jsonify({"success": True, "active_fault": state.fault, "target": state.fault_tgt})
 
@@ -266,8 +295,14 @@ def clear_fault():
 
 @app.route("/api/shap")
 def get_shap():
+    sub = request.args.get("substation", state.sel_sub)
     with state.lock:
-        return jsonify(state.shap_result)
+        try:
+            if sub == state.sel_sub and state.shap_result:
+                return jsonify(state.shap_result)
+            return jsonify(state.classifier.compute_shap(sub))
+        except Exception:
+            return jsonify(state.shap_result or {"substation": sub, "values": {}})
 
 
 if __name__ == "__main__":

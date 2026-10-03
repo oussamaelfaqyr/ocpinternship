@@ -32,7 +32,7 @@
 
         <div class="header-controls">
             <button class="btn btn-primary" id="btnPlayPause"><svg style="vertical-align: middle; margin-right: 4px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Pause</button>
-            <button class="btn btn-secondary" id="btnStep"><svg style="vertical-align: middle; margin-right: 4px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg> Step</button>
+            <button class="btn btn-secondary" id="btnOpenDetailsModal"><svg style="vertical-align: middle; margin-right: 4px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg> System Details</button>
             <button class="btn btn-danger" id="btnOpenFaultModal"><svg style="vertical-align: middle; margin-right: 4px;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> Inject Fault</button>
         </div>
     </header>
@@ -71,9 +71,11 @@
             <div class="kpi-label">AI Engine Model</div>
             <div class="kpi-value" style="color: #006837; display: flex; align-items: center; justify-content: space-between;">
                 <select id="kpiModelSelect" style="font-weight: 700; font-size: 13px; background: transparent; border: none; color: #006837; cursor: pointer; outline: none; padding: 0; font-family: inherit;">
-                    <option value="lstm">LSTM Optuna</option>
-                    <option value="gru">GRU Optuna</option>
-                    <option value="cnn">CNN-1D Optuna</option>
+                    <option value="gru_optuna">GRU Optuna (E3-B)</option>
+                    <option value="gru_e3b">GRU Champion (E3-B)</option>
+                    <option value="gru">GRU Active</option>
+                    <option value="gru_base">GRU Baseline (E2)</option>
+                    <option value="lstm">LSTM Legacy</option>
                 </select>
                 <span class="kpi-unit" style="margin-left: 6px;">ACTIVE</span>
             </div>
@@ -180,9 +182,11 @@
                         <span class="card-title" id="aiModelCardTitle">AI Fault Diagnosis</span>
                         <div style="display: flex; gap: 8px; align-items: center;">
                             <select id="aiModelSelector" style="font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 4px; border: 1px solid #CBD5E1; background: #FFF; color: #0F172A; cursor: pointer;">
-                                <option value="lstm">LSTM Optuna (F1: 0.699)</option>
-                                <option value="gru">GRU Optuna (F1: 0.712)</option>
-                                <option value="cnn">CNN-1D Optuna (F1: 0.629)</option>
+                                <option value="gru_optuna">GRU Optuna E3-B (F1: 0.7715)</option>
+                                <option value="gru_e3b">GRU Champion E3-B (F1: 0.7494)</option>
+                                <option value="gru">GRU Active (F1: 0.730)</option>
+                                <option value="gru_base">GRU Baseline E2 (F1: 0.688)</option>
+                                <option value="lstm">LSTM Legacy</option>
                             </select>
                             <span class="badge" id="aiSubBadge">Mine Mzinda DIS TR</span>
                         </div>
@@ -214,7 +218,7 @@
                         </div>
                         <div>
                             <span class="detail-lbl">Rolling Window:</span>
-                            <span class="detail-val">20 Timesteps (22 Features)</span>
+                            <span class="detail-val">20 Timesteps (35 Features)</span>
                         </div>
                         <div>
                             <span class="detail-lbl">Relay Status:</span>
@@ -316,14 +320,15 @@
                     <select id="faultTypeSelect" class="form-control">
                         <option value="lg_fault">Line-to-Ground Fault (LG)</option>
                         <option value="ll_fault">Line-to-Line Fault (LL)</option>
-                        <option value="overload">Thermal Overload</option>
-                        <option value="voltage_sag">Grid Voltage Sag</option>
-                        <option value="under_frequency">Under-Frequency (81U)</option>
-                        <option value="over_frequency">Over-Frequency (81O)</option>
-                        <option value="transformer_trip">Transformer Trip</option>
-                        <option value="breaker_trip">Breaker Trip</option>
-                        <option value="source_outage">Source Outage</option>
+                        <option value="transformer_trip">Transformer Trip (Buchholz/Diff)</option>
+                        <option value="overload">Thermal Overload (ANSI 49)</option>
+                        <option value="voltage_sag">Grid Voltage Sag (ANSI 27)</option>
+                        <option value="under_frequency">Under-Frequency (ANSI 81U)</option>
+                        <option value="over_frequency">Over-Frequency (ANSI 81O)</option>
                     </select>
+                    <small style="color:#64748B; font-size:11px; margin-top:4px; display:block;">
+                        Note : Seules les 7 classes de défauts apprises par le modèle Deep GRU sont listées.
+                    </small>
                 </div>
                 <div class="form-group">
                     <label>Duration (seconds)</label>
@@ -337,6 +342,271 @@
         </div>
     </div>
 
+    <!-- SYSTEM DETAILS & DOCUMENTATION MODAL -->
+    <div class="modal-overlay" id="detailsModal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="background: #ECFDF5; border-radius: 6px; padding: 6px; display: flex; align-items: center; justify-content: center;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#006837" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; color: #006837; font-size: 17px; font-weight: 800;">OCP SCADA Digital Twin & AI Protection System</h3>
+                        <div style="font-size: 11px; color: #64748B; font-weight: 600;">Spécifications Techniques du Système & Rapport d'Ingénierie</div>
+                    </div>
+                </div>
+                <button class="modal-close" id="btnCloseDetailsModal">&times;</button>
+            </div>
+
+            <div class="modal-body" style="font-size: 13px; line-height: 1.6; color: #1E293B;">
+                
+                <!-- AUTHOR & ATTRIBUTION BADGE -->
+                <div class="author-badge-card">
+                    <div>
+                        <div class="author-info-title">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#006837" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                            Ingénieur Projet : Oussama Elfaqyr
+                        </div>
+                        <div class="author-info-sub">
+                            <span style="display: flex; align-items: center; gap: 5px;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                                <strong>Contact :</strong> <a href="mailto:oussamaelfaqyr@gmail.com">oussamaelfaqyr@gmail.com</a>
+                            </span>
+                            <span>•</span>
+                            <span style="display: flex; align-items: center; gap: 5px;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="9" y1="22" x2="9" y2="22.01"></line><line x1="15" y1="22" x2="15.01" y2="22"></line><line x1="12" y1="18" x2="12" y2="18.01"></line></svg>
+                                <strong>Cadre :</strong> PFE Stage OCP — Site Gantour / Youssoufia
+                            </span>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="badge" style="background: #006837; color: #FFF; padding: 6px 12px; font-size: 11px; font-weight: 700; border-radius: 6px; letter-spacing: 0.3px;">
+                            SCADA AI Digital Twin v2.0
+                        </span>
+                    </div>
+                </div>
+
+                <!-- OVERVIEW -->
+                <p style="margin-bottom: 16px; color: #334155; font-size: 12.5px;">
+                    Ce système est un <strong>Jumeau Numérique (Digital Twin) SCADA professionnel</strong> couplé à un <strong>moteur d'intelligence artificielle profonde (Deep Learning GRU)</strong> pour la supervision, la détection et la classification automatique en temps réel des défauts sur le réseau électrique haute tension (<strong>60 kV HTB / 5.5 kV HTA</strong>) du complexe industriel <strong>OCP Youssoufia</strong>.
+                </p>
+
+                <!-- SECTION 1: ELECTRICAL NETWORK -->
+                <div class="details-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#006837" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                    1. Architecture du Réseau Électrique OCP (60 kV HTB / 5.5 kV HTA)
+                </div>
+                <div class="details-spec-grid">
+                    <div class="details-spec-item">
+                        <div class="details-spec-label">Tension Primaire HTB</div>
+                        <div class="details-spec-val">60.0 kV (Interconnexion ONEE)</div>
+                    </div>
+                    <div class="details-spec-item">
+                        <div class="details-spec-label">Tension Secondaire HTA</div>
+                        <div class="details-spec-val">5.5 kV (Distribution Procédés)</div>
+                    </div>
+                    <div class="details-spec-item">
+                        <div class="details-spec-label">Nombre de Sous-Stations</div>
+                        <div class="details-spec-val">11 Postes de Transformation OCP</div>
+                    </div>
+                    <div class="details-spec-item">
+                        <div class="details-spec-label">Moteur de Simulation</div>
+                        <div class="details-spec-val">Pandapower (AC Newton-Raphson)</div>
+                    </div>
+                </div>
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 10px 12px; margin-bottom: 16px; font-size: 11.5px; color: #475569;">
+                    <strong>Sous-stations intégrées au modèle :</strong> Laverie/Séchage SN1 & SN2, Mine Mzinda DIS TR, PSF Mine Bouchane SN6, Recette 3 SN3, Recette 9 SN9, SSP Local ST1 & ST2, U Calcination SN1, SN2 & SN3.
+                </div>
+
+                <!-- SECTION 2: AI DEEP LEARNING MODEL -->
+                <div class="details-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#006837" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
+                    2. Moteur IA Deep Learning (Deep GRU & Optimisation HPO Optuna)
+                </div>
+                <div class="details-spec-grid">
+                    <div class="details-spec-item">
+                        <div class="details-spec-label">Architecture du Réseau</div>
+                        <div class="details-spec-val">Deep GRU (2 Couches Récurrentes)</div>
+                    </div>
+                    <div class="details-spec-item">
+                        <div class="details-spec-label">Capacité Cachée (Hidden)</div>
+                        <div class="details-spec-val">256 Neurones + Dropout 0.30</div>
+                    </div>
+                    <div class="details-spec-item">
+                        <div class="details-spec-label">Optimisation Hyperparamètres</div>
+                        <div class="details-spec-val">Optuna HPO (30 Trials, TPE + Pruner)</div>
+                    </div>
+                    <div class="details-spec-item">
+                        <div class="details-spec-label">Gestion Déséquilibre</div>
+                        <div class="details-spec-val">WeightedRandomSampler (&alpha; = 0.40)</div>
+                    </div>
+                </div>
+
+                <!-- SECTION 3: FEATURES & DATA PIPELINE -->
+                <div class="details-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#006837" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                    3. Pipeline de Features Physiques (35 Features &times; 20 Timesteps)
+                </div>
+                <p style="font-size: 12px; color: #475569; margin-bottom: 10px;">
+                    Chaque pas de temps du buffer glissant (20 secondes) est structuré selon <strong>4 groupes de grandeurs physiques</strong> :
+                </p>
+
+                <div class="feature-pipe-grid">
+                    <!-- CARD A: RAW -->
+                    <div class="feature-pipe-card" style="border-top: 3px solid #006837;">
+                        <div class="feature-pipe-header">
+                            <span style="color: #006837;">A. Mesures SCADA Brutes (11 Features)</span>
+                            <span class="badge">Raw</span>
+                        </div>
+                        <div class="feature-pill-wrapper">
+                            <span class="feature-pill">V<sub>HV</sub> (kV)</span>
+                            <span class="feature-pill">V<sub>LV</sub> (kV)</span>
+                            <span class="feature-pill">I<sub>HV</sub> (A)</span>
+                            <span class="feature-pill">P (MW)</span>
+                            <span class="feature-pill">Q (Mvar)</span>
+                            <span class="feature-pill">S (MVA)</span>
+                            <span class="feature-pill">PF</span>
+                            <span class="feature-pill">Charge (%)</span>
+                            <span class="feature-pill">f (Hz)</span>
+                            <span class="feature-pill">&Delta;f (Hz)</span>
+                            <span class="feature-pill">&Delta;V<sub>HV</sub> (kV)</span>
+                        </div>
+                    </div>
+
+                    <!-- CARD B: RATIOS -->
+                    <div class="feature-pipe-card" style="border-top: 3px solid #0056AD;">
+                        <div class="feature-pipe-header">
+                            <span style="color: #0056AD;">B. Ratios & Grandeurs Per-Unit (8 Features)</span>
+                            <span class="badge">Per-Unit</span>
+                        </div>
+                        <div class="feature-pill-wrapper">
+                            <span class="feature-pill highlight">V<sub>HV,pu</sub> = V<sub>HV</sub>/60</span>
+                            <span class="feature-pill highlight">V<sub>LV,pu</sub> = V<sub>LV</sub>/5.5</span>
+                            <span class="feature-pill highlight">V<sub>ratio</sub> = V<sub>LV,pu</sub> / V<sub>HV,pu</sub></span>
+                            <span class="feature-pill highlight">&Delta;V<sub>pu</sub></span>
+                            <span class="feature-pill highlight">P<sub>ratio</sub> = P / P<sub>base</sub></span>
+                            <span class="feature-pill highlight">P&Delta;<sub>ratio</sub></span>
+                            <span class="feature-pill highlight">I<sub>ratio</sub> = I / I<sub>base</sub></span>
+                            <span class="feature-pill highlight">S<sub>ratio</sub> = S / S<sub>base</sub></span>
+                        </div>
+                    </div>
+
+                    <!-- CARD C: DYNAMICS -->
+                    <div class="feature-pipe-card" style="border-top: 3px solid #B45309;">
+                        <div class="feature-pipe-header">
+                            <span style="color: #B45309;">C. Dynamiques & Énergie Thermique (5 Features)</span>
+                            <span class="badge">Dynamic</span>
+                        </div>
+                        <div class="feature-pill-wrapper">
+                            <span class="feature-pill">&Delta;I<sub>HV</sub> (A)</span>
+                            <span class="feature-pill">|&Delta;I<sub>HV</sub>| (A)</span>
+                            <span class="feature-pill">&Delta;P (MW)</span>
+                            <span class="feature-pill">&Delta;S (MVA)</span>
+                            <span class="feature-pill highlight">I<sup>2</sup>t<sub>pu</sub> = (I<sub>HV</sub> / I<sub>base</sub>)<sup>2</sup></span>
+                        </div>
+                    </div>
+
+                    <!-- CARD D: OHE -->
+                    <div class="feature-pipe-card" style="border-top: 3px solid #64748B;">
+                        <div class="feature-pipe-header">
+                            <span style="color: #475569;">D. Encodage Géographique (11 Features)</span>
+                            <span class="badge">OHE</span>
+                        </div>
+                        <div class="feature-pill-wrapper">
+                            <span class="feature-pill">Laverie SN1</span>
+                            <span class="feature-pill">Laverie SN2</span>
+                            <span class="feature-pill">Mzinda TR</span>
+                            <span class="feature-pill">Bouchane SN6</span>
+                            <span class="feature-pill">Recette 3</span>
+                            <span class="feature-pill">Recette 9</span>
+                            <span class="feature-pill">SSP ST1</span>
+                            <span class="feature-pill">SSP ST2</span>
+                            <span class="feature-pill">Calcination SN1</span>
+                            <span class="feature-pill">Calcination SN2</span>
+                            <span class="feature-pill">Calcination SN3</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 4: BENCHMARK & PERFORMANCE -->
+                <div class="details-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#006837" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v2h10v-2h-2c-.55 0-1-.45-1-1v-2.34c3.2-1.07 5-4.22 5-7.66H4c0 3.44 1.8 6.59 5 7.66z"></path></svg>
+                    4. Résultats & Performances Validées (One-Shot Test Set — 4958 Échantillons)
+                </div>
+                <table class="scada-table" style="margin-bottom: 16px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                    <thead>
+                        <tr>
+                            <th>Métrique Globale</th>
+                            <th>Baseline Initiale (E0)</th>
+                            <th>Champion Manuel (E3-B)</th>
+                            <th style="background: #ECFDF5; color: #006837; font-weight: 800;">Modèle Optuna Final (Production)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Exactitude Globale (Accuracy)</strong></td>
+                            <td>78.40 %</td>
+                            <td>81.16 %</td>
+                            <td style="font-weight: 800; color: #006837; background: #F0FDF4;">82.35 % (Record Absolu)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>F1-Score Pondéré (Weighted F1)</strong></td>
+                            <td>78.10 %</td>
+                            <td>80.79 %</td>
+                            <td style="font-weight: 800; color: #006837; background: #F0FDF4;">82.13 % (Record Absolu)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Validation Macro-F1 (Optuna)</strong></td>
+                            <td>0.6700</td>
+                            <td>0.7298</td>
+                            <td style="font-weight: 800; color: #006837; background: #F0FDF4;">0.7715 (77.15 %)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Détection Over-Frequency (81O)</strong></td>
+                            <td>88.20 %</td>
+                            <td>92.50 %</td>
+                            <td style="font-weight: 700; color: #006837; background: #F0FDF4;">94.00 % F1</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Détection Grid Voltage Sag (27)</strong></td>
+                            <td>89.00 %</td>
+                            <td>92.30 %</td>
+                            <td style="font-weight: 700; color: #006837; background: #F0FDF4;">93.00 % F1</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Détection Under-Frequency (81U)</strong></td>
+                            <td>61.40 %</td>
+                            <td>67.10 %</td>
+                            <td style="font-weight: 700; color: #006837; background: #F0FDF4;">70.00 % F1 (+40 détections)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Précision Thermal Overload (49)</strong></td>
+                            <td>31.00 %</td>
+                            <td>58.10 %</td>
+                            <td style="font-weight: 700; color: #006837; background: #F0FDF4;">64.00 % Précision (57.0% F1)</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- SECTION 5: EXPLAINABILITY & SCADA -->
+                <div class="details-section-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#006837" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    5. Explicabilité en Temps Réel (SHAP) & Plateforme SCADA
+                </div>
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; padding: 12px 14px; font-size: 12px; color: #334155; line-height: 1.6;">
+                    • <strong>Interprétabilité IA (SHAP Saliency) :</strong> Algorithme <em>Gradient &times; Input</em> calculé en temps réel en <strong>&lt; 1 ms</strong> sur CPU pour quantifier l'influence exacte des capteurs sur la décision de l'IA.<br>
+                    • <strong>Backend SCADA Temps Réel :</strong> Serveur Flask REST API multithreadé assurant le calcul des baselines et grandeurs per-unit à chaque tick, le relayage numérique de protection (50/51, 81U/81O, 27) et la journalisation SOE.
+                </div>
+
+            </div>
+
+            <div class="modal-footer" style="border-top: 1px solid #E2E8F0; padding-top: 12px; margin-top: 16px;">
+                <button class="btn btn-primary" id="btnCloseDetailsModalBottom">Fermer</button>
+            </div>
+        </div>
+    </div>
+
     <script src="app.js"></script>
 </body>
 </html>
+

@@ -1,36 +1,66 @@
-﻿# Python
+# ==============================================================================
+# OCP Youssoufia 60 kV SCADA Digital Twin — .gitignore
+# ==============================================================================
+
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*.class
+*$py.class
 *.so
-.Python
-env/
+
+# Virtual Environments
 venv/
 .venv/
+env/
+ENV/
+env.bak/
+venv.bak/
 
-# Jupyter
-.ipynb_checkpoints/
+# MLflow Tracking & Databases
+mlruns/
+*.db
+*.sqlite
+*.sqlite3
 
-# Datasets (large files)
-ai/dataset/*.csv
-fault_simulator/*.csv
+# DVC Internal
+.dvc/cache
+.dvc/tmp
 
-# MLflow runs
-ai/models/mlruns/
-ai/models/mlflow.db
-ai/models/mlflow_artifacts/
+# PyTorch / Deep Learning checkpoints (exclude huge temp dumps, keep production models)
+*.pt.tmp
+*.pth.tmp
+*.ckpt
 
-# Large Model files
-ai/models/saved_models/random_forest.pkl
+# Distribution / Packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Processed npz
-ai/data processing/data/processed/*.npz
-
-# Joblib general exclusion except processed encoders & scalers
-*.joblib
-!ai/data processing/data/processed/scaler.joblib
-!ai/data processing/data/processed/substation_encoder.joblib
-
-# OS files
+# IDEs & Text Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Logs & Temporary Scratch Files
+*.log
+scratch/
+tmp/
+temp/
+*.tmp

@@ -1,135 +1,70 @@
-# OCP Youssoufia — SCADA Digital Twin
+# OCP Youssoufia — SCADA Digital Twin & AI Protection System
 
-Digital twin du réseau 60 kV HTB de l'OCP Youssoufia.
-Simule le réseau électrique, injecte des pannes, et les classifie en temps réel via un modèle LSTM.
-
----
-
-## Structure du projet
-
-```
-ocp_internship/
-│
-├── server.py                          ← Serveur Flask (API REST + UI Web)
-├── README.md
-│
-├── network_model/
-│   └── build_network.py               ← Construction du réseau PandaPower 60 kV
-│
-├── fault_simulator/
-│   ├── fault_simulator.py             ← Moteur de simulation pas-à-pas
-│   ├── dataset_generator.py           ← Générateur de dataset d'entraînement
-│   ├── generate.py                    ← Script de génération (point d'entrée)
-│   ├── generate_dataset_pandapower.py ← Générateur alternatif PandaPower
-│   ├── __init__.py
-│   ├── lg_fault.py / ll_fault.py      ← Types de pannes
-│   ├── overload.py / outage_fault.py
-│   ├── voltage_sag.py / frequency_fault.py
-│   ├── load_profile.py                ← Profil de charge journalier
-│   ├── protection_engine.py           ← Logique de protection
-│   ├── sc_engine.py                   ← Calcul court-circuit
-│   ├── sensor_effects.py              ← Bruit capteur réaliste
-│   └── youssoufia_pandapower_*.csv    ← Datasets simulés bruts
-│
-├── ai/
-│   ├── fault_classifier.py            ← Classificateur LSTM (interface serveur)
-│   ├── __init__.py
-│   ├── data processing/
-│   │   ├── preprocessing_pipeline_v2.py   ← Pipeline de prétraitement
-│   │   ├── params.yaml / dvc.yaml / dvc.lock
-│   │   └── data/processed/
-│   │       ├── scaler.joblib          ← StandardScaler entraîné
-│   │       ├── label_vocab.json       ← Mapping label → index
-│   │       ├── train_final.npz        ← Séquences (20 × 22 features)
-│   │       ├── val_final.npz
-│   │       └── test_final.npz
-│   ├── dataset/
-│   │   ├── train.csv                  ← Dataset brut d'entraînement
-│   │   └── test_val.csv
-│   └── models/
-│       ├── train_lstm_hpt.py          ← Entraînement LSTM + Optuna  ← ACTIF
-│       ├── train_baseline.py / train_hpt.py / train_cnn_hpt.py
-│       ├── benchmark_inference.py     ← Comparaison latence LSTM/GRU/CNN
-│       ├── mlflow.db / mlruns/        ← Tracking MLflow
-│       └── saved_models/
-│           ├── lstm_optuna_best.pt    ← MODELE EN PRODUCTION
-│           ├── gru_optuna_best.pt / cnn_optuna_best.pt
-│           └── random_forest.pkl
-│
-├── dashboard/
-│   ├── streamlit_app.py               ← Application Streamlit
-│   ├── .streamlit/                    ← Config thème
-│   └── components/
-│       ├── ai_panel.py / ai_confidence.py
-│       ├── charts.py / alarms.py
-│       ├── network_table.py / sld_viewer.py
-│       └── soe_log.py / dataset_stats.py / common.py
-│
-├── notebooks/
-│   ├── eda_notebook.ipynb             ← Analyse exploratoire
-│   └── youssoufia_eda.ipynb
-│
-└── static/                            ← Frontend Web (HTML5/CSS3/JS)
-    ├── index.html / app.js / styles.css
-```
+> **Système Intelligent de Supervision & Diagnostic des Défauts Réseau (60 kV HTB)**  
+> **Projet de Fin d'Études (PFE) — Groupe OCP (Site Gantour / Youssoufia)**  
+> **Auteur :** Oussama Elfaqyr ([oussamaelfaqyr@gmail.com](mailto:oussamaelfaqyr@gmail.com))
 
 ---
 
-## Lancer le serveur SCADA (Flask + Web UI)
+## 📖 Guides Disponibles
 
+* 📘 **Guide Non-Technique (Utilisateurs & Opérateurs) :** [`USER_GUIDE.md`](USER_GUIDE.md) — Explications pas-à-pas simplifiées de chaque écran, des indicateurs et de la procédure de démonstration.
+* 🛠️ **Fiche Technique Système :** Accessible directement depuis l'application via le bouton **`System Details`**.
+
+---
+
+## ⚡ Démarrage Rapide
+
+### 1. Installation des Dépendances
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Lancement du Serveur SCADA (Flask + Web UI)
 ```bash
 python server.py
 ```
-
-Le navigateur s'ouvre automatiquement sur http://127.0.0.1:8080
-
-## Lancer le dashboard analytique (Streamlit)
-
-```bash
-cd dashboard
-streamlit run streamlit_app.py
-```
+*Le serveur démarre et ouvre automatiquement l'interface sur :* **`http://127.0.0.1:8080`**
 
 ---
 
-## Modèle IA — LSTM
+## 🧠 Modèle d'Intelligence Artificielle (Production)
 
-| Paramètre    | Valeur |
+| Paramètre | Spécification |
 |---|---|
-| Fichier      | ai/models/saved_models/lstm_optuna_best.pt |
-| Input        | (1, 20, 22) — 20 timesteps x 22 features |
-| Output       | 8 classes de pannes |
-| Val Macro-F1 | 0.6987 |
-| hidden_size  | 128 |
-| num_layers   | 2 |
+| **Architecture** | **Deep Gated Recurrent Unit (GRU)** — 2 Couches, 256 Unités Cachées |
+| **Optimisation** | **Optuna HPO** (30 Trials, TPE Sampler + Median Pruner) |
+| **Poids Modèle** | `ai/models/saved_models/gru_optuna_e3b_best.pt` |
+| **Fenêtre Temporelle** | 20 timesteps &times; 35 features physiques & ratios normalisés |
+| **Exactitude Globale (Accuracy)** | **`82.35 %` 🏆 (Record Absolu)** |
+| **F1-Score Pondéré** | **`82.13 %` 🏆** |
+| **Validation Macro-F1** | **`77.15 %` 🏆** |
+| **Explicabilité IA** | **Gradient &times; Input (SHAP)** calculé en temps réel (< 1 ms) |
 
-### Classes détectées
+### 8 Classes Diagnostiquées par l'IA
 
-| Index | Label | Sévérité |
-|---|---|---|
-| 0 | normal | — |
-| 1 | lg_fault | CRITICAL |
-| 2 | ll_fault | CRITICAL |
-| 3 | over_frequency | WARNING |
-| 4 | overload | WARNING |
-| 5 | transformer_trip | CRITICAL |
-| 6 | under_frequency | WARNING |
-| 7 | voltage_sag | WARNING |
+| Index | Classe | Nom du Défaut | Sévérité | F1-Score Validé |
+|---|---|---|---|:---:|
+| 0 | `normal` | Fonctionnement Nominal | Normal | **0.91** |
+| 1 | `lg_fault` | Court-Circuit Ligne-Terre (LG) | CRITICAL | **0.62** |
+| 2 | `ll_fault` | Court-Circuit Entre Phases (LL) | CRITICAL | **0.57** |
+| 3 | `over_frequency` | Sur-Fréquence Réseau (ANSI 81O) | WARNING | **0.94** |
+| 4 | `overload` | Surcharge Thermique Transformateur (ANSI 49) | WARNING | **0.57** (Précision 64%) |
+| 5 | `transformer_trip` | Déclenchement Transformateur (Buchholz/Diff) | CRITICAL | **0.65** |
+| 6 | `under_frequency` | Sous-Fréquence Réseau (ANSI 81U) | WARNING | **0.70** |
+| 7 | `voltage_sag` | Creux de Tension Réseau (ANSI 27) | WARNING | **0.93** |
 
 ---
 
-## Réentraîner le modèle LSTM
+## 🛠️ Pipeline d'Ingénierie & Entraînement
 
 ```bash
-# 1. Regénérer le dataset
-cd fault_simulator
-python generate.py
-
-# 2. Prétraitement
-cd "../ai/data processing"
+# 1. Prétraitement des 35 features physiques
+cd "ai/data processing"
 python preprocessing_pipeline_v2.py
 
-# 3. Entraînement LSTM avec Optuna
+# 2. Entraînement et Optimisation HPO (Optuna 30 trials)
 cd "../models"
-python train_lstm_hpt.py
+python train_hpt_e3b.py
 ```
+

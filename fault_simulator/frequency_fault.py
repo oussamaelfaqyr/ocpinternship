@@ -21,7 +21,8 @@ HV_KV = 60.0
 MV_KV = 5.5
 
 
-def generate_freq_trajectory(mode: str, n_steps: int, rng=None) -> list:
+def generate_freq_trajectory(mode: str, n_steps: int, rng=None,
+                             immediate_start: bool = False) -> list:
     """
     Generates a physically realistic frequency trajectory for an entire fault episode.
 
@@ -33,6 +34,9 @@ def generate_freq_trajectory(mode: str, n_steps: int, rng=None) -> list:
     mode : 'under' or 'over'
     n_steps : total number of timesteps in the episode
     rng : numpy random Generator (optional)
+    immediate_start : if True, skip the pre-fault normal phase and start
+                      immediately at nadir (useful for server-injected faults
+                      so the model window fills with anomalous data quickly).
 
     Returns
     -------
@@ -54,23 +58,31 @@ def generate_freq_trajectory(mode: str, n_steps: int, rng=None) -> list:
         nadir = rng.uniform(50.7, 51.2)        # 50.7–51.2 Hz nadir
 
     trajectory = []
-    pre_normal_steps = max(2, n_steps - ramp_down_steps - sustained_steps - ramp_up_steps - 2)
-    post_normal_steps = n_steps - pre_normal_steps - ramp_down_steps - sustained_steps - ramp_up_steps
+
+    if immediate_start:
+        # Skip pre-fault normal — start directly at nadir for fast model detection
+        pre_normal_steps = 0
+        post_normal_steps = max(0, n_steps - ramp_down_steps - sustained_steps - ramp_up_steps)
+    else:
+        pre_normal_steps = max(2, n_steps - ramp_down_steps - sustained_steps - ramp_up_steps - 2)
+        post_normal_steps = n_steps - pre_normal_steps - ramp_down_steps - sustained_steps - ramp_up_steps
 
     # 1. Pre-event normal
     for _ in range(pre_normal_steps):
         trajectory.append(50.0 + 0.012 * rng.standard_normal())
 
-    # 2. Smooth ramp toward nadir (cosine transition)
-    for k in range(ramp_down_steps):
-        frac = (k + 1) / ramp_down_steps
-        # cosine interpolation for smooth ramp
+    # 2. Smooth ramp toward nadir (cosine transition) — shortened when immediate
+    actual_ramp = 1 if immediate_start else ramp_down_steps
+    for k in range(actual_ramp):
+        frac = (k + 1) / actual_ramp
         smooth = 0.5 * (1 - np.cos(np.pi * frac))
         f = 50.0 + (nadir - 50.0) * smooth
         trajectory.append(f + 0.015 * rng.standard_normal())
 
-    # 3. Sustained excursion at nadir (with small noise)
-    for _ in range(sustained_steps):
+    # 3. Sustained excursion at nadir (with small noise) — extend to fill most of n_steps
+    actual_sustained = n_steps - pre_normal_steps - actual_ramp - ramp_up_steps
+    actual_sustained = max(5, actual_sustained)
+    for _ in range(actual_sustained):
         trajectory.append(nadir + 0.020 * rng.standard_normal())
 
     # 4. Smooth recovery back to 50 Hz

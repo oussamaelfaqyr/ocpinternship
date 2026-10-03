@@ -53,12 +53,16 @@ const el = {
     statusDot: document.getElementById("statusDot"),
     statusText: document.getElementById("statusText"),
     btnPlayPause: document.getElementById("btnPlayPause"),
-    btnStep: document.getElementById("btnStep"),
+    btnOpenDetailsModal: document.getElementById("btnOpenDetailsModal"),
     btnOpenFaultModal: document.getElementById("btnOpenFaultModal"),
     btnCloseFaultModal: document.getElementById("btnCloseFaultModal"),
     faultModal: document.getElementById("faultModal"),
     btnSubmitFault: document.getElementById("btnSubmitFault"),
     btnClearFaultBtn: document.getElementById("btnClearFaultBtn"),
+    // Details Modal
+    detailsModal: document.getElementById("detailsModal"),
+    btnCloseDetailsModal: document.getElementById("btnCloseDetailsModal"),
+    btnCloseDetailsModalBottom: document.getElementById("btnCloseDetailsModalBottom"),
     subPills: document.getElementById("subPills"),
     faultTargetSelect: document.getElementById("faultTargetSelect"),
     faultTypeSelect: document.getElementById("faultTypeSelect"),
@@ -124,7 +128,17 @@ function setupTabNavigation() {
 
 function setupEventListeners() {
     el.btnPlayPause.addEventListener("click", () => controlSim("toggle"));
-    el.btnStep.addEventListener("click", () => controlSim("step"));
+    
+    if (el.btnOpenDetailsModal) {
+        el.btnOpenDetailsModal.addEventListener("click", () => el.detailsModal.classList.add("active"));
+    }
+    if (el.btnCloseDetailsModal) {
+        el.btnCloseDetailsModal.addEventListener("click", () => el.detailsModal.classList.remove("active"));
+    }
+    if (el.btnCloseDetailsModalBottom) {
+        el.btnCloseDetailsModalBottom.addEventListener("click", () => el.detailsModal.classList.remove("active"));
+    }
+
     el.btnOpenFaultModal.addEventListener("click", () => el.faultModal.classList.add("active"));
     el.btnCloseFaultModal.addEventListener("click", () => el.faultModal.classList.remove("active"));
     el.btnSubmitFault.addEventListener("click", submitFault);
@@ -158,7 +172,8 @@ async function switchAIModel(modelKey) {
 
 function updateModelUI(mInfo) {
     if (!mInfo) return;
-    const key = mInfo.key || "lstm";
+    const key = mInfo.key || "gru_optuna";
+    // Sync both selects without triggering change events
     if (el.kpiModelSelect && el.kpiModelSelect.value !== key) {
         el.kpiModelSelect.value = key;
     }
@@ -166,7 +181,8 @@ function updateModelUI(mInfo) {
         el.aiModelSelector.value = key;
     }
     if (el.aiModelArch) {
-        el.aiModelArch.textContent = `${mInfo.arch} (val F1: ${(mInfo.val_f1 || 0).toFixed(3)})`;
+        const f1 = mInfo.val_f1 ? ` — Val F1: ${mInfo.val_f1.toFixed(3)}` : "";
+        el.aiModelArch.textContent = `${mInfo.arch}${f1}`;
     }
     if (el.aiModelCardTitle) {
         el.aiModelCardTitle.textContent = `${mInfo.display_name} Fault Diagnosis`;
@@ -215,9 +231,9 @@ async function updateDashboard() {
         state.events = await eventRes.json();
         state.history = await histRes.json();
 
-        // Also fetch SHAP values
+        // Also fetch SHAP values for selected substation
         try {
-            const shapRes = await fetch("/api/shap");
+            const shapRes = await fetch(`/api/shap?substation=${encodeURIComponent(state.selectedSubstation)}`);
             state.shapData = await shapRes.json();
         } catch(e) { state.shapData = {}; }
         
@@ -613,24 +629,63 @@ function renderAIDiagnosis() {
 }
 
 function renderFeatureInspector(tel) {
+    const vHv = tel.V_hv_kV || 0;
+    const vLv = tel.V_lv_kV || 0;
+    const iHv = tel.I_hv_A || 0;
+    const pMw = tel.P_MW || 0;
+    const qMvar = tel.Q_Mvar || 0;
+    const sMva = tel.S_MVA || 0;
+    const pf = tel.PF || 0.95;
+    const load = tel.loading_pct || 0;
+    const freq = tel.freq_Hz || 50;
+
+    // Computed per-unit ratios (estimated from telemetry)
+    const vHvPu = (vHv / 60.0).toFixed(4);
+    const vLvPu = (vLv / 5.5).toFixed(4);
+    const vRatio = (vHv > 0 ? (vLv/5.5) / (vHv/60.0 + 1e-4) : 0).toFixed(4);
+    const deltaVpu = ((vLv/5.5) - (vHv/60.0)).toFixed(4);
+
     const feats = [
-        { label: "V_hv_kV", val: (tel.V_hv_kV || 0).toFixed(2) },
-        { label: "V_lv_kV", val: (tel.V_lv_kV || 0).toFixed(3) },
-        { label: "I_hv_A", val: (tel.I_hv_A || 0).toFixed(1) },
-        { label: "P_MW", val: (tel.P_MW || 0).toFixed(3) },
-        { label: "Q_Mvar", val: (tel.Q_Mvar || 0).toFixed(3) },
-        { label: "S_MVA", val: (tel.S_MVA || 0).toFixed(3) },
-        { label: "PF", val: (tel.PF || 0.95).toFixed(2) },
-        { label: "loading_pct", val: (tel.loading_pct || 0).toFixed(1) + "%" },
-        { label: "freq_Hz", val: (tel.freq_Hz || 50).toFixed(3) },
-        { label: "n_faulted", val: "0" }
+        // Raw measurements
+        { label: "V_hv_kV", val: vHv.toFixed(2), cat: "raw" },
+        { label: "V_lv_kV", val: vLv.toFixed(3), cat: "raw" },
+        { label: "I_hv_A", val: iHv.toFixed(1), cat: "raw" },
+        { label: "P_MW", val: pMw.toFixed(3), cat: "raw" },
+        { label: "Q_Mvar", val: qMvar.toFixed(3), cat: "raw" },
+        { label: "S_MVA", val: sMva.toFixed(3), cat: "raw" },
+        { label: "PF", val: pf.toFixed(3), cat: "raw" },
+        { label: "loading_pct", val: load.toFixed(1) + "%", cat: "raw" },
+        { label: "freq_Hz", val: freq.toFixed(3), cat: "raw" },
+        { label: "Δfreq_Hz", val: (tel.delta_freq_Hz || 0).toFixed(4), cat: "raw" },
+        { label: "ΔV_hv_kV", val: (tel.delta_V_hv || 0).toFixed(4), cat: "raw" },
+        // Per-unit ratios (E1/E2 features)
+        { label: "V_hv_pu", val: vHvPu, cat: "ratio" },
+        { label: "V_lv_pu", val: vLvPu, cat: "ratio" },
+        { label: "V_ratio", val: vRatio, cat: "ratio" },
+        { label: "ΔV_pu", val: deltaVpu, cat: "ratio" },
+        { label: "P_ratio", val: (tel.p_ratio || "—"), cat: "ratio" },
+        { label: "PΔ_ratio", val: (tel.p_delta_ratio || "—"), cat: "ratio" },
+        { label: "I_ratio", val: (tel.i_ratio || "—"), cat: "ratio" },
+        { label: "S_ratio", val: (tel.s_ratio || "—"), cat: "ratio" },
+        // Dynamic features
+        { label: "ΔI_hv_A", val: (tel.delta_I_hv || 0).toFixed(3), cat: "dyn" },
+        { label: "|ΔI_hv|", val: (tel.abs_delta_I_hv || 0).toFixed(3), cat: "dyn" },
+        { label: "ΔP_MW", val: (tel.delta_P_MW || 0).toFixed(4), cat: "dyn" },
+        { label: "ΔS_MVA", val: (tel.delta_S_MVA || 0).toFixed(4), cat: "dyn" },
+        { label: "I²t_pu", val: (tel.i2t_pu || "—"), cat: "dyn" },
+        // OHE substation
+        { label: "Substation", val: (state.selectedSubstation || "").split(" ")[0], cat: "ohe" },
     ];
+
+    const catColor = { raw: "#006837", ratio: "#0056AD", dyn: "#B45309", ohe: "#6B7280" };
+    const catLabel = { raw: "Raw", ratio: "Ratio", dyn: "Dynamic", ohe: "OHE" };
 
     let gridHtml = "";
     feats.forEach(f => {
+        const col = catColor[f.cat] || "#334155";
         gridHtml += `
-            <div class="feature-tile">
-                <div class="ft-lbl">${f.label}</div>
+            <div class="feature-tile" style="border-top: 3px solid ${col};">
+                <div class="ft-lbl" style="color:${col};">${f.label}</div>
                 <div class="ft-val">${f.val}</div>
             </div>
         `;
