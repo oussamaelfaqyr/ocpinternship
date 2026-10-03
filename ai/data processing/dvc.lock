@@ -1,0 +1,58 @@
+schema: '2.0'
+stages:
+  data_preparation:
+    cmd: python preprocessing_pipeline_v2.py
+    deps:
+    - path: ../dataset/test_val.csv
+      hash: md5
+      md5: 4693b32e193b81fcd590d5115e9f12fc
+      size: 3121966
+    - path: ../dataset/train.csv
+      hash: md5
+      md5: 869791b7449f9f9763b958bfc2923c26
+      size: 48277695
+    - path: preprocessing_pipeline_v2.py
+      hash: md5
+      md5: 7d98354263fb50adca072fb946884656
+      size: 24281
+    outs:
+    - path: data/processed/label_vocab.json
+      hash: md5
+      md5: b64722acc55d75f512a983edc3f18a51
+      size: 169
+    - path: data/processed/scaler.joblib
+      hash: md5
+      md5: b46b4262916cd1fe5fd56cfc041d7ee6
+      size: 1167
+    - path: data/processed/test_final.npz
+      hash: md5
+      md5: eaca50f2a8e75d401aedd1d5b8914d4b
+      size: 3951921
+    - path: data/processed/train_final.npz
+      hash: md5
+      md5: fd423156c0ec7ee239988d97cfdf6b80
+      size: 18628758
+    - path: data/processed/val_final.npz
+      hash: md5
+      md5: b670e6084d411e298a79449e9a65eb1a
+      size: 3888233
+  model_training:
+    cmd: python ../models/train_baseline.py
+    deps:
+    - path: ../models/train_baseline.py
+      hash: md5
+      md5: 3b375c809b422266103da860dad612e2
+      size: 15987
+    - path: data/processed/train_final.npz
+      hash: md5
+      md5: fd423156c0ec7ee239988d97cfdf6b80
+      size: 18628758
+    - path: data/processed/val_final.npz
+      hash: md5
+      md5: b670e6084d411e298a79449e9a65eb1a
+      size: 3888233
+    outs:
+    - path: ../models/saved_models/gru_baseline.pt
+      hash: md5
+      md5: 5bbe1c1846d4ef7dbb5d83543696ecc5
+      size: 184597

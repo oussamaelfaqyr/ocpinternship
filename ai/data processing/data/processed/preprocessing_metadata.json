@@ -1,0 +1,29 @@
+{
+  "window_size": 20,
+  "stride": 10,
+  "num_features": 12,
+  "features": [
+    "V_hv_kV",
+    "V_lv_kV",
+    "I_hv_A",
+    "P_MW",
+    "Q_Mvar",
+    "S_MVA",
+    "PF",
+    "loading_pct",
+    "freq_Hz",
+    "offline_subs_fraction",
+    "delta_freq_Hz",
+    "delta_V_hv_kV"
+  ],
+  "substation_feature_used": false,
+  "episode_safe_windowing": true,
+  "train_fraction": 0.7,
+  "validation_fraction": 0.15,
+  "test_fraction": 0.15,
+  "random_seed": 42,
+  "label_to_idx": {
+    "normal": 0
+  },
+  "expected_timestep": 1.0
+}

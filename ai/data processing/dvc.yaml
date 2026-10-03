@@ -1,0 +1,22 @@
+stages:
+  data_preparation:
+    cmd: python preprocessing_pipeline_v2.py
+    deps:
+      - preprocessing_pipeline_v2.py
+      - ../dataset/train.csv
+      - ../dataset/test_val.csv
+    outs:
+      - data/processed/train_final.npz
+      - data/processed/val_final.npz
+      - data/processed/test_final.npz
+      - data/processed/scaler.joblib
+      - data/processed/label_vocab.json
+
+  model_training:
+    cmd: python ../models/train_baseline.py
+    deps:
+      - ../models/train_baseline.py
+      - data/processed/train_final.npz
+      - data/processed/val_final.npz
+    outs:
+      - ../models/saved_models/gru_baseline.pt

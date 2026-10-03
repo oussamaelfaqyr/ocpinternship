@@ -1,0 +1,63 @@
+# Single source of truth for the data-preparation pipeline.
+# Every stage script reads its config from here (via src/utils.load_params) —
+# never hardcode a threshold, ratio, or column list inside a stage script.
+paths:
+  raw: data/raw/youssoufia_pandapower_dataset_dataset.csv
+  cleaned: data/cleaned/dataset_clean.parquet
+  validated: data/validated/dataset_validated.parquet
+  selected: data/validated/dataset_selected.parquet
+  splits_dir: data/splits          # per-split, per-substation, pre-window parquet
+  windows_dir: data/windows        # windowed .npz per split
+  processed_dir: data/processed    # final encoded+scaled arrays ready for training
+columns:
+  numeric:
+    - V_hv_kV
+    - V_lv_kV
+    - I_hv_A
+    - P_MW
+    - Q_Mvar
+    - S_MVA
+    - PF
+    - loading_pct
+    - freq_Hz
+  keep_categorical:
+    - substation
+  drop_columns:                    # leakage / redundant status columns — see report §Step 3
+    - relay_status
+    - breaker_status
+    - lifecycle_stage
+    - fault_location
+    - equip_status                 # near 1:1 with label at fault timesteps -> leakage, not "investigate"
+  label_col: label
+  time_col: time_s
+  substation_col: substation
+cleaning:
+  interpolation_method: linear
+  interpolate_within_block_only: true   # never interpolate across a label/fault boundary
+validation:
+  pf_bounds: [0.0, 1.0]
+  freq_bounds: [45.0, 55.0]
+  s_consistency_tolerance_mva: 0.5      # |S - sqrt(P^2+Q^2)| must stay under this
+  drop_transition_rows: false           # keep label='normal' rows with inconsistent status,
+                                         # just flagged via metadata column is_transition_row
+                                         # (NOT relabeled to a new class — see report §Step 3)
+system_features:
+  add_n_substations_faulted: true       # grid-wide event visibility for per-substation windows (see report §4)
+windowing:
+  window_size: 20        # ~= mean fault event duration (14.7s observed) rounded up
+  stride: 5
+  label_strategy: priority   # 'priority' = any fault timestep in window -> fault label; 'majority' = mode label
+split:
+  train_frac: 0.70
+  val_frac: 0.15
+  test_frac: 0.15
+  block_size_s: 300      # block granularity for the block-based chronological split;
+                          # smaller = less data lost to forced rare-class placement,
+                          # larger = fewer, coarser blocks (was 1800, see report §Step 7)
+encoding:
+  substation_encoding: onehot   # tracked by dvc.yaml; current code hardcodes one-hot + integer
+  label_encoding: integer       # regardless of this value — see note below
+scaling:
+  method: standard              # tracked by dvc.yaml; current code hardcodes a single global
+  per_substation: false         # StandardScaler fit on train regardless of this value — see note below
+random_seed: 42
