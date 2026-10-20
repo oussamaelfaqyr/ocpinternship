@@ -76,8 +76,6 @@ AI_SEVERITY = {
     "breaker_trip":     "CRITICAL",
     "voltage_sag":      "WARNING",
     "overload":         "WARNING",
-    "under_frequency":  "WARNING",
-    "over_frequency":   "WARNING",
     "normal":           "NONE",
 }
 
@@ -91,6 +89,7 @@ def check_alarms(sub, row, ts, ai_res=None):
     lp = row.get("loading_pct", 0)
     lbl = row.get("label", "normal")
     v = row.get("V_hv_kV", 60.0)
+    freq = row.get("freq_Hz", 50.0)
 
     def _add(pri, msg):
         if any(a["sub"] == sub and a["msg"] == msg for a in state.alarms[:10]):
@@ -100,7 +99,7 @@ def check_alarms(sub, row, ts, ai_res=None):
         if len(state.alarms) > 300:
             state.alarms = state.alarms[:200]
 
-    # Physical threshold alarms
+    # Physical threshold alarms (ANSI Protection Rules)
     if lbl != "normal":
         _add("CRITICAL", FAULT_LABELS.get(lbl, lbl))
     elif lp > 100:
@@ -109,6 +108,10 @@ def check_alarms(sub, row, ts, ai_res=None):
         _add("WARNING", f"High load {lp:.0f}%")
     if 0 < v < 54:
         _add("CRITICAL", f"Undervoltage {v:.1f} kV")
+    if freq < 49.5:
+        _add("CRITICAL", f"ANSI 81U Under-Frequency: {freq:.2f} Hz (< 49.5 Hz)")
+    elif freq > 50.5:
+        _add("CRITICAL", f"ANSI 81O Over-Frequency: {freq:.2f} Hz (> 50.5 Hz)")
 
     # AI Model Alert Trigger
     if ai_res:

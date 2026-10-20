@@ -275,8 +275,8 @@ with mlflow.start_run(run_name="E5A_GRU_max_abs_delta_I_w20_WRS"):
     print("\nPer-class detail:")
     p_cls, r_cls, f1_cls, sup = precision_recall_fscore_support(
         t_targets, t_preds, labels=classes, zero_division=0)
-    label_names = {0:"normal",1:"lg_fault",2:"ll_fault",3:"over_freq",
-                   4:"overload",5:"transf_trip",6:"under_freq",7:"voltage_sag"}
+    label_names = {0:"normal", 1:"lg_fault", 2:"ll_fault", 3:"overload",
+                   4:"transf_trip", 5:"voltage_sag"}
     for i, c in enumerate(classes):
         print(f"  class {c} {label_names.get(c,'?'):15} | "
               f"P={p_cls[i]:.3f} R={r_cls[i]:.3f} F1={f1_cls[i]:.3f} sup={sup[i]}")

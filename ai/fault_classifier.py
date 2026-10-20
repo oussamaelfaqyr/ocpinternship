@@ -1,17 +1,15 @@
 """
 AI Fault Classifier -- OCP Youssoufia 60 kV Digital Twin
 =========================================================
-Multi-architecture sequence classifier for 8 fault categories:
-  0  normal            5  transformer_trip
-  1  lg_fault          6  under_frequency
-  2  ll_fault          7  voltage_sag
-  3  over_frequency
-  4  overload
+Multi-architecture sequence classifier for 6 fault categories:
+  0  normal            3  overload
+  1  lg_fault          4  transformer_trip
+  2  ll_fault          5  voltage_sag
 
 Supported architectures:
-  - GRU Optuna E3-B   gru_optuna_e3b_best.pt (Active/Champion)
-  - GRU E3-B          gru_e3b.pt             (Champion Macro-F1 0.7494)
-  - GRU Baseline      gru_baseline.pt        (Baseline E2)
+  - GRU Baseline      gru_baseline.pt        (Active/Retrained 6-Class)
+  - GRU Optuna        gru_optuna_e3b_best.pt (Legacy 8-Class)
+  - GRU E3-B          gru_e3b.pt             (Legacy 8-Class)
   - LSTM Legacy       lstm_optuna_best.pt
 
 Input shape : (1, window_size=20, n_features=35)
@@ -85,16 +83,24 @@ class CNN1DClassifier(nn.Module):
 # ---------- Model registry ---------------------------------------------
 
 AVAILABLE_MODELS = {
-    "gru_optuna": {"file": "gru_optuna_e3b_best.pt", "display_name": "GRU Optuna (E3-B)",
-                   "arch": "GRU (2 Layers, 256 Hidden)", "val_f1": 0.7715},
-    "gru_e3b":    {"file": "gru_e3b.pt",              "display_name": "GRU Champion (E3-B)",
-                   "arch": "GRU (2 Layers, 128 Hidden)", "val_f1": 0.7298},
-    "gru":        {"file": "gru_e3b.pt",              "display_name": "GRU E3-B Active",
-                   "arch": "GRU (2 Layers, 128 Hidden)", "val_f1": 0.7298},
-    "gru_base":   {"file": "gru_baseline.pt",         "display_name": "GRU Baseline (E2)",
-                   "arch": "GRU (2 Layers, 64 Hidden)",  "val_f1": 0.688},
-    "lstm":       {"file": "lstm_optuna_best.pt",     "display_name": "LSTM Legacy",
-                   "arch": "LSTM (2 Layers, 128 Hidden)", "val_f1": 0.699},
+    "gru_e3a":    {"file": "gru_e3a.pt",              "display_name": "GRU E3-A Champion (6-Class)",
+                   "arch": "GRU (2L, 128H, CE+ClassWeights)", "val_f1": 0.7926},
+    "gru_base":   {"file": "gru_baseline.pt",         "display_name": "GRU Baseline (6-Class)",
+                   "arch": "GRU (2L, 64H)",            "val_f1": 0.7719},
+    "gru_e3b":    {"file": "gru_e3b.pt",              "display_name": "GRU E3-B (6-Class)",
+                   "arch": "GRU (2L, 128H, WRS)",      "val_f1": 0.7761},
+    "gru_e4a":    {"file": "gru_e4a.pt",              "display_name": "GRU E4-A Focal (6-Class)",
+                   "arch": "GRU (2L, 128H, Focal+WRS)","val_f1": 0.7176},
+    "gru_e4b":    {"file": "gru_e4b.pt",              "display_name": "GRU E4-B Attention (6-Class)",
+                   "arch": "GRU (2L, 128H, Attn+Focal)","val_f1": 0.7794},
+    "gru_e5a":    {"file": "gru_e5a.pt",              "display_name": "GRU E5-A Current Dynamics (6-Class)",
+                   "arch": "GRU (2L, 128H, WRS+DeltaI)","val_f1": 0.7761},
+    "lstm":       {"file": "lstm_optuna_best.pt",     "display_name": "LSTM (6-Class)",
+                   "arch": "LSTM (2L, 128H)",           "val_f1": 0.7957},
+    "cnn":        {"file": "cnn_optuna_best.pt",      "display_name": "1D CNN (6-Class)",
+                   "arch": "Conv1D (32→64, K=3)",       "val_f1": 0.7791},
+    "gru":        {"file": "gru_e3a.pt",              "display_name": "GRU E3-A Champion (6-Class)",
+                   "arch": "GRU (2L, 128H, CE+ClassWeights)", "val_f1": 0.7926},
 }
 
 
@@ -111,8 +117,8 @@ class FaultClassifier:
 
     WINDOW_SIZE   = 20
     INPUT_SIZE    = 35
-    NUM_CLASSES   = 8
-    DEFAULT_MODEL = "gru_optuna"
+    NUM_CLASSES   = 6
+    DEFAULT_MODEL = "gru_e3a"
 
     SUBSTATIONS = [
         "Laverie/Sechage SN1", "Laverie/Sechage SN2", "Mine Mzinda DIS TR",
@@ -416,8 +422,6 @@ class FaultClassifier:
         if v_hv < 35.0:  return "lg_fault" if pf < 0.3 else "ll_fault"
         if v_hv < 51.0:  return "voltage_sag"
         if load > 105.0: return "overload"
-        if freq < 49.6:  return "under_frequency"
-        if freq > 50.4:  return "over_frequency"
         if i_hv < 1.0:   return "breaker_trip"
         return "normal"
 

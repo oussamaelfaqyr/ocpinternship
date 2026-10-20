@@ -3,8 +3,7 @@ stages:
     cmd: python preprocessing_pipeline_v2.py
     deps:
       - preprocessing_pipeline_v2.py
-      - ../dataset/train.csv
-      - ../dataset/test_val.csv
+      - ../../dataset/train.csv
     outs:
       - data/processed/train_final.npz
       - data/processed/val_final.npz

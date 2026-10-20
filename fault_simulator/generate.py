@@ -37,23 +37,20 @@ from sensor_effects import SensorImperfectionEngine
 # ============================================================
 # CONFIGURATION
 # ============================================================
-NUM_EPISODES = 200         # Change to 2000 for the final full dataset
+NUM_EPISODES = 1000        # Full dataset generation
 STEPS_PER_EPISODE = 150    # Length of each episode in seconds (timesteps)
 
 OUTPUT_DIR = CURRENT_DIR.parent / "dataset"
 OUTPUT_FILE = OUTPUT_DIR / "train.csv"
 
 FAULT_PROBABILITIES = {
-    "normal": 0.40,
-    "lg_fault": 0.15,
-    "ll_fault": 0.15,
+    "normal": 0.45,
+    "lg_fault": 0.175,
+    "ll_fault": 0.175,
     "overload": 0.10,
-    "under_frequency": 0.05,
-    "over_frequency": 0.05,
     "voltage_sag": 0.05,
     "breaker_trip": 0.025,
     "transformer_trip": 0.025,
-    "source_outage": 0.025,
 }
 
 # ============================================================
@@ -138,47 +135,49 @@ class DatasetGenerator:
             stage_info = self.protection_tracker.get_lifecycle_stage(step)
             telemetry = {}
             
-            if fault_type == "lg_fault":
+            is_fault_active = (fault_type != "normal" and stage_info["stage"] not in ["normal", "restored"])
+            
+            if is_fault_active and fault_type == "lg_fault":
                 telemetry = self.lg_sim.apply_fault(net, target_sub, stage_info, r_fault)
-            elif fault_type == "ll_fault":
+            elif is_fault_active and fault_type == "ll_fault":
                 telemetry = self.ll_sim.apply_fault(net, target_sub, stage_info, r_fault)
-            elif fault_type == "overload":
+            elif is_fault_active and fault_type == "overload":
                 self.overload_sim.apply_fault(net, f"{target_sub} load", step, overload_factor)
                 telemetry = self.overload_sim.get_telemetry_override(net, target_sub, stage_info, step)
-            elif fault_type == "under_frequency":
+            elif is_fault_active and fault_type == "under_frequency":
                 freq_hz = self.protection_tracker.get_freq_value()
                 telemetry = self.freq_sim.get_telemetry_override(net, mode="under", freq_hz=freq_hz, stage_info=stage_info)
-            elif fault_type == "over_frequency":
+            elif is_fault_active and fault_type == "over_frequency":
                 freq_hz = self.protection_tracker.get_freq_value()
                 telemetry = self.freq_sim.get_telemetry_override(net, mode="over", freq_hz=freq_hz, stage_info=stage_info)
-            elif fault_type == "voltage_sag":
+            elif is_fault_active and fault_type == "voltage_sag":
                 self.sag_sim.apply_fault(net, sag_depth_pu=sag_depth)
                 telemetry = self.sag_sim.get_telemetry_override(net)
-            elif fault_type == "breaker_trip":
+            elif is_fault_active and fault_type == "breaker_trip":
                 if stage_info["stage"] == "isolated" and step == fault_start_step + 1:
                     self.outage_sim.apply_breaker_trip(net, target_sub)
                 try:
-                    pp.runpp(net, numba=False)
+                    pp.runpp(net, numba=True)
                     conv = True
                 except:
                     conv = False
                 telemetry = self.outage_sim.get_breaker_trip_telemetry(net, target_sub, stage_info, conv)
-            elif fault_type == "transformer_trip":
+            elif is_fault_active and fault_type == "transformer_trip":
                 if stage_info["stage"] == "isolated" and step == fault_start_step + 1:
                     self.outage_sim.apply_transformer_trip(net, target_sub)
                 try:
-                    pp.runpp(net, numba=False)
+                    pp.runpp(net, numba=True)
                     conv = True
                 except:
                     conv = False
                 telemetry = self.outage_sim.get_transformer_trip_telemetry(net, target_sub, stage_info, conv)
-            elif fault_type == "source_outage":
+            elif is_fault_active and fault_type == "source_outage":
                 if stage_info["stage"] == "isolated" and step == fault_start_step + 1:
                     self.outage_sim.apply_source_outage(net)
                 telemetry = self.outage_sim.get_source_outage_telemetry(net, stage_info)
             else:
                 try:
-                    pp.runpp(net, numba=False)
+                    pp.runpp(net, numba=True)
                     conv = True
                 except:
                     conv = False
@@ -210,7 +209,7 @@ class DatasetGenerator:
                     }
 
             for sub, data in telemetry.items():
-                data["fault_location"] = target_sub if fault_type != "normal" else "NONE"
+                data["fault_location"] = target_sub if is_fault_active else "NONE"
                 data["event_label"] = fault_type
                 data["local_label"] = data.get("label", "normal")
                 
@@ -236,7 +235,10 @@ class DatasetGenerator:
             all_dfs.append(df)
             
             elapsed = time.time() - start_time
-            print(f"\r  Progress: {ep + 1}/{NUM_EPISODES} episodes generated | Elapsed: {elapsed:.1f}s", end="", flush=True)
+            if (ep + 1) % 10 == 0 or ep == 0 or (ep + 1) == NUM_EPISODES:
+                rate = (ep + 1) / elapsed
+                remaining = (NUM_EPISODES - (ep + 1)) / (rate if rate > 0 else 1)
+                print(f"  [{ep + 1:4d}/{NUM_EPISODES}] Elapsed: {elapsed/60:5.1f}m | ETA: {remaining/60:5.1f}m | Rate: {rate:.2f} ep/s", flush=True)
         
         print("\n\nConcatenating dataset...")
         final_df = pd.concat(all_dfs, ignore_index=True)

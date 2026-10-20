@@ -13,7 +13,8 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
-DATASET_DIR = BASE_DIR.parent / "dataset"
+ROOT_DATASET_DIR = BASE_DIR.parent.parent / "dataset"
+DATASET_DIR = ROOT_DATASET_DIR if (ROOT_DATASET_DIR / "train.csv").exists() else (BASE_DIR.parent / "dataset")
 OUTPUT_DIR = BASE_DIR / "data" / "processed"
 
 TRAIN_RAW = DATASET_DIR / "train.csv"
@@ -25,6 +26,8 @@ VAL_FRACTION = 0.50
 
 EXCLUDED_EVAL_LABELS = [
     "breaker_trip",
+    "over_frequency",
+    "under_frequency",
 ]
 
 # ADDED "PF" back into numeric features, since we fixed the simulator 
@@ -66,9 +69,7 @@ DROP_COLUMNS = [
     "offline_subs_fraction",
 ]
 
-REMAP_LABELS = {
-    "recovering": "normal",
-}
+REMAP_LABELS = {}
 
 PF_BOUNDS = (-1.0, 1.0)
 FREQ_BOUNDS = (45.0, 55.0)
@@ -99,6 +100,8 @@ def print_labels(df, name):
 # ============================================================
 
 def assign_episode_ids(df):
+    if "episode_id" in df.columns:
+        return df.copy()
     df = df.sort_values(["substation", "time_s"]).reset_index(drop=True).copy()
     dt = df.groupby("substation")["time_s"].diff()
     expected_dt = df.groupby("substation")["time_s"].diff().dropna().median()
@@ -113,11 +116,21 @@ def episode_level_split(df, train_frac=0.70, val_frac=0.15, seed=42):
     print("\n[EPISODE SPLIT]")
     df = assign_episode_ids(df)
     rng = np.random.RandomState(seed)
-    episodes = df.groupby("episode_id")["label"].first().reset_index()
+    
+    # Determine primary episode label for stratification
+    if "event_label" in df.columns:
+        episodes = df.groupby("episode_id")["event_label"].first().reset_index()
+        episodes.rename(columns={"event_label": "split_label"}, inplace=True)
+    else:
+        def find_label(s):
+            nn = s[s != "normal"]
+            return nn.iloc[0] if len(nn) > 0 else "normal"
+        episodes = df.groupby("episode_id")["label"].agg(find_label).reset_index()
+        episodes.rename(columns={"label": "split_label"}, inplace=True)
 
     train_ids, val_ids, test_ids = [], [], []
 
-    for label, group in episodes.groupby("label"):
+    for label, group in episodes.groupby("split_label"):
         ids = group["episode_id"].to_numpy().copy()
         rng.shuffle(ids)
         n = len(ids)
@@ -125,11 +138,15 @@ def episode_level_split(df, train_frac=0.70, val_frac=0.15, seed=42):
         n_val = int(round(n * val_frac))
 
         if n >= 3:
-            n_train = min(n_train, n - 2)
-            n_val = min(n_val, n - n_train - 1)
+            n_train = max(1, min(n_train, n - 2))
+            n_val = max(1, min(n_val, n - n_train - 1))
+        elif n == 2:
+            n_train = 1
+            n_val = 0
+            # 1 goes to test
         else:
-            n_train = max(1, n - 2)
-            n_val = 1 if n - n_train >= 2 else 0
+            n_train = 1
+            n_val = 0
 
         train_class_ids = ids[:n_train]
         val_class_ids = ids[n_train : n_train + n_val]
@@ -140,14 +157,13 @@ def episode_level_split(df, train_frac=0.70, val_frac=0.15, seed=42):
         test_ids.extend(test_class_ids)
 
         print(
-            f"  {label:25s}: {n} episodes -> "
-            f"{len(train_class_ids)} train / "
-            f"{len(val_class_ids)} val / "
-            f"{len(test_class_ids)} test"
+            f"  {label:25s}: {n:3d} episodes -> "
+            f"{len(train_class_ids):2d} train / "
+            f"{len(val_class_ids):2d} val / "
+            f"{len(test_class_ids):2d} test"
         )
 
     train_ids, val_ids, test_ids = set(train_ids), set(val_ids), set(test_ids)
-
     if train_ids & val_ids: raise RuntimeError("Episode leakage between train and validation.")
     if train_ids & test_ids: raise RuntimeError("Episode leakage between train and test.")
     if val_ids & test_ids: raise RuntimeError("Episode leakage between validation and test.")
@@ -193,18 +209,17 @@ def clean_dataframe(df, name):
     if "episode_id" not in df.columns:
         df = assign_episode_ids(df)
         
-    work = df.sort_values(["substation", "time_s"]).reset_index(drop=True).copy()
+    work = df.sort_values(["episode_id", "substation", "time_s"]).reset_index(drop=True).copy()
     
     missing_before = int(work[NUMERIC_FEATURES].isna().sum().sum())
     
-    # OPTIMIZED: Use vectorized interpolate, then fast groupby ffill/bfill 
-    # This prevents the massive slowdown caused by using lambda functions in transform.
-    work[NUMERIC_FEATURES] = work[NUMERIC_FEATURES].interpolate(method="linear", limit_area="inside")
+    # Linear interpolation inside each (episode, substation) series
+    work[NUMERIC_FEATURES] = work.groupby(["episode_id", "substation"])[NUMERIC_FEATURES].transform(
+        lambda g: g.interpolate(method="linear", limit_area="inside")
+    )
     
     for column in NUMERIC_FEATURES:
-        # ffill and bfill per substation AND episode_id to handle leading/trailing NaNs 
-        # without crossing episode boundaries
-        work[column] = work.groupby(["substation", "episode_id"])[column].ffill().bfill()
+        work[column] = work.groupby(["episode_id", "substation"])[column].ffill().bfill()
 
     missing_after = int(work[NUMERIC_FEATURES].isna().sum().sum())
     print(f"  numeric NaNs: {missing_before} -> {missing_after}")
@@ -227,20 +242,12 @@ def validate_dataframe(df, name):
     pf_mismatch = ((df["PF"] - pf_calculated).abs() > PF_CONSISTENCY_TOLERANCE).fillna(False)
     print("  PF != P/S:", int(pf_mismatch.sum()), f"({pf_mismatch.mean() * 100:.2f}%)")
 
-    status_columns = {"equip_status", "breaker_status", "relay_status"}
-    if status_columns.issubset(df.columns):
-        normal = df["label"] == "normal"
-        bad_status = (
-            (df["equip_status"] != "HEALTHY")
-            | (df["breaker_status"] != "CLOSED")
-            | (~df["relay_status"].isin(["NORMAL", "ALARM", "MONITORING"]))
-        )
-        transition = normal & bad_status
-        print("  normal + incoherent status:", int(transition.sum()))
-        df.loc[transition, "label"] = "recovering"
-        df["is_transition_row"] = transition.astype(np.int8)
-    else:
-        df["is_transition_row"] = np.int8(0)
+    if "breaker_status" in df.columns and "event_label" in df.columns:
+        # Breaker is still OPEN after fault -> feeder physically isolated -> keep fault label
+        open_mask = (df["label"] == "normal") & (df["breaker_status"] == "OPEN")
+        df.loc[open_mask, "label"] = df.loc[open_mask, "event_label"]
+        print(f"  Relabeled {open_mask.sum()} 'normal+OPEN' rows with their event_label")
+    df["is_transition_row"] = np.int8(0)
 
     before = len(df)
     df = df.dropna(subset=NUMERIC_FEATURES).copy()
@@ -258,7 +265,7 @@ def select_features(df, name):
     columns_to_drop = [c for c in DROP_COLUMNS if c in df.columns]
     print("  dropping:", columns_to_drop)
     df = df.drop(columns=columns_to_drop)
-    keep_columns = ["time_s", "substation"] + NUMERIC_FEATURES + ["is_transition_row", "label"]
+    keep_columns = ["episode_id", "time_s", "substation"] + NUMERIC_FEATURES + ["is_transition_row", "label"]
     ensure_columns(df, keep_columns, name)
     return df[keep_columns].copy()
 
@@ -268,15 +275,10 @@ def select_features(df, name):
 # ============================================================
 
 def fix_frequency_range(df):
-    df = df.copy()
-    def rescale(mask, old_lo, old_hi, new_lo, new_hi):
-        if not mask.any(): return
-        denom = old_hi - old_lo
-        if denom == 0: return
-        df.loc[mask, "freq_Hz"] = new_lo + ((df.loc[mask, "freq_Hz"] - old_lo) / denom) * (new_hi - new_lo)
-
-    rescale(df["label"] == "over_frequency", 51.427, 52.913, 50.7, 51.2)
-    rescale(df["label"] == "under_frequency", 47.045, 48.596, 48.5, 49.3)
+    """
+    PASSTHROUGH: Frequency rescaling conditionally on target labels caused severe
+    data leakage and produced unseen values at inference.
+    """
     return df
 
 
@@ -285,14 +287,10 @@ def fix_frequency_range(df):
 # ============================================================
 
 def add_delta_features(df):
-    df = df.sort_values(["substation", "time_s"]).copy()
-    df["delta_freq_Hz"] = df.groupby("substation")["freq_Hz"].diff()
-    df["delta_V_hv_kV"] = df.groupby("substation")["V_hv_kV"].diff()
-    dt = df.groupby("substation")["time_s"].diff()
-    expected_dt = dt.dropna().median()
-    if pd.isna(expected_dt): expected_dt = 1.0
-    boundary_mask = dt.isna() | (dt != expected_dt)
-    df.loc[boundary_mask, ["delta_freq_Hz", "delta_V_hv_kV"]] = 0.0
+    df = df.sort_values(["episode_id", "substation", "time_s"]).copy()
+    group = df.groupby(["episode_id", "substation"])
+    df["delta_freq_Hz"] = group["freq_Hz"].diff().fillna(0.0)
+    df["delta_V_hv_kV"] = group["V_hv_kV"].diff().fillna(0.0)
     return df
 
 
@@ -321,7 +319,7 @@ def compute_train_baselines(train_df):
 
 def apply_power_and_dynamic_features(df, baselines):
     """Apply substation-relative ratios and dynamic features (E2)."""
-    df = df.sort_values(["substation", "time_s"]).copy()
+    df = df.sort_values(["episode_id", "substation", "time_s"]).copy()
     eps = 1e-4
 
     p_base = df["substation"].map(baselines["P"])
@@ -335,20 +333,14 @@ def apply_power_and_dynamic_features(df, baselines):
     df["S_ratio"] = df["S_MVA"] / (s_base + eps)
     df["I2t_pu"] = (df["I_hv_A"] / (i_base + eps)) ** 2
 
-    # Dynamic variations
-    df["delta_I_hv"] = df.groupby("substation")["I_hv_A"].diff()
+    # Dynamic variations strictly within the same episode and substation
+    group = df.groupby(["episode_id", "substation"])
+    df["delta_I_hv"] = group["I_hv_A"].diff().fillna(0.0)
     df["abs_delta_I_hv"] = df["delta_I_hv"].abs()
-    df["delta_P_MW"] = df.groupby("substation")["P_MW"].diff()
-    df["delta_S_MVA"] = df.groupby("substation")["S_MVA"].diff()
-
-    # Boundary handling
-    dt = df.groupby("substation")["time_s"].diff()
-    expected_dt = dt.dropna().median()
-    if pd.isna(expected_dt): expected_dt = 1.0
-    boundary_mask = dt.isna() | (dt != expected_dt)
+    df["delta_P_MW"] = group["P_MW"].diff().fillna(0.0)
+    df["delta_S_MVA"] = group["S_MVA"].diff().fillna(0.0)
 
     diff_cols = ["delta_I_hv", "abs_delta_I_hv", "delta_P_MW", "delta_S_MVA"]
-    df.loc[boundary_mask, diff_cols] = 0.0
     df[diff_cols] = df[diff_cols].fillna(0.0)
 
     return df
@@ -361,23 +353,21 @@ def apply_power_and_dynamic_features(df, baselines):
 def label_window(labels):
     fault_labels = [label for label in labels if label != "normal"]
     if fault_labels:
-        return fault_labels[0]
+        return fault_labels[-1]
     return "normal"
 
 def make_windows(df, name):
     print(f"\n[{name}] Windowing")
 
-    # Sort globally by substation and time
-    df = df.sort_values(["substation", "time_s"]).reset_index(drop=True)
+    # Sort strictly by episode, substation, and time_s
+    df = df.sort_values(["episode_id", "substation", "time_s"]).reset_index(drop=True)
 
-    all_X, all_y, all_t, all_substations, all_transition = [], [], [], [], []
+    all_X, all_y, all_t, all_substations, all_transition, all_episodes = [], [], [], [], [], []
 
-    # Group ONLY by substation. We intentionally do NOT group by episode_id
-    # because fault episodes are very short (often 1 timestep). Grouping
-    # by substation allows a sliding window to span across normal -> fault.
-    grouped = df.groupby("substation", sort=False)
+    # Group by BOTH episode_id and substation to ensure each window is a continuous temporal sequence
+    grouped = df.groupby(["episode_id", "substation"], sort=False)
 
-    for substation, group in grouped:
+    for (ep_id, substation), group in grouped:
         group = group.sort_values("time_s").reset_index(drop=True)
         if len(group) < WINDOW_SIZE:
             continue
@@ -394,11 +384,12 @@ def make_windows(df, name):
             all_t.append(window["time_s"].iloc[0])
             all_substations.append(substation)
             all_transition.append(float(window["is_transition_row"].mean()))
+            all_episodes.append(ep_id)
 
     if not all_X:
         raise ValueError(
             f"{name}: no windows generated. "
-            f"Each substation must contain at least {WINDOW_SIZE} timesteps."
+            f"Each episode/substation series must contain at least {WINDOW_SIZE} timesteps."
         )
 
     X = np.stack(all_X)
@@ -406,6 +397,7 @@ def make_windows(df, name):
     t_start = np.asarray(all_t)
     substations = np.asarray(all_substations)
     transition_fraction = np.asarray(all_transition, dtype=np.float32)
+    episodes_arr = np.asarray(all_episodes)
 
     print("  X:", X.shape)
     values, counts = np.unique(y, return_counts=True)
@@ -417,6 +409,7 @@ def make_windows(df, name):
         "t_start": t_start,
         "substation": substations,
         "transition_frac": transition_fraction,
+        "episode_id": episodes_arr,
     }
 
 
@@ -479,6 +472,7 @@ def encode_windows(windows, ohe, label_to_idx, name):
         "t_start": windows["t_start"],
         "substation": windows["substation"],
         "transition_frac": windows["transition_frac"],
+        "episode_id": windows["episode_id"],
     }
 
 
@@ -515,14 +509,16 @@ def apply_scaler(encoded, scaler):
 
 def save_npz(data, path):
     path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(
-        path,
-        X=data["X"],
-        y=data["y"],
-        t_start=data["t_start"],
-        substation=data["substation"],
-        transition_frac=data["transition_frac"],
-    )
+    save_dict = {
+        "X": data["X"],
+        "y": data["y"],
+        "t_start": data["t_start"],
+        "substation": data["substation"],
+        "transition_frac": data["transition_frac"],
+    }
+    if "episode_id" in data:
+        save_dict["episode_id"] = data["episode_id"]
+    np.savez_compressed(path, **save_dict)
     print("  saved:", path)
 
 
@@ -550,6 +546,12 @@ def main():
     ]
     ensure_columns(raw, required_columns, "train.csv")
     print("SOURCE:", raw.shape)
+
+    # Drop entire frequency episodes before split (85% of their rows are nominal — no learnable signal)
+    if "event_label" in raw.columns:
+        freq_episode_ids = raw.loc[raw["event_label"].isin(["over_frequency", "under_frequency"]), "episode_id"].unique()
+        raw = raw[~raw["episode_id"].isin(freq_episode_ids)].copy()
+        print(f"  Dropped {len(freq_episode_ids)} frequency episodes -> {raw['episode_id'].nunique()} episodes remaining")
 
     print("\n" + "=" * 70)
     print("B. EPISODE SPLIT")

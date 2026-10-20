@@ -104,7 +104,7 @@ Affiche **4 graphiques dynamiques en temps réel** pour la sous-station active :
 Cet onglet détaille l'analyse effectuée par l'Intelligence Artificielle :
 * **Carte de Diagnostic IA :** Affiche la classe de défaut prédite et le niveau de confiance de l'IA (ex: `98.5%`).
 * **Action Recommandée à l'Opérateur :** Conseils opérationnels clairs générés automatiquement (ex: *"Délestage requis sur départ non prioritaire"*, *"Vérifier relais différentiel transformateur"*).
-* **Distribution des Probabilités :** Graphique à barres comparant la vraisemblance des 8 états possibles du réseau.
+* **Distribution des Probabilités :** Graphique à barres comparant la vraisemblance des 6 états possibles du réseau.
 * **Explicabilité IA (SHAP Feature Importance) :** Un graphique qui explique **pourquoi** l'IA a pris sa décision :
   * *Barre verte :* La mesure pousse l'IA à confirmer le défaut.
   * *Barre rouge :* La mesure retient l'IA d'autres hypothèses.

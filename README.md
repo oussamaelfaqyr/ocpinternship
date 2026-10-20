@@ -41,18 +41,18 @@ python server.py
 | **Validation Macro-F1** | **`77.15 %` 🏆** |
 | **Explicabilité IA** | **Gradient &times; Input (SHAP)** calculé en temps réel (< 1 ms) |
 
-### 8 Classes Diagnostiquées par l'IA
+### 6 Classes Diagnostiquées par l'IA (+ Protections Déterministes ANSI)
 
-| Index | Classe | Nom du Défaut | Sévérité | F1-Score Validé |
+| Index | Classe | Nom du Défaut | Sévérité | Type de Détection |
 |---|---|---|---|:---:|
-| 0 | `normal` | Fonctionnement Nominal | Normal | **0.91** |
-| 1 | `lg_fault` | Court-Circuit Ligne-Terre (LG) | CRITICAL | **0.62** |
-| 2 | `ll_fault` | Court-Circuit Entre Phases (LL) | CRITICAL | **0.57** |
-| 3 | `over_frequency` | Sur-Fréquence Réseau (ANSI 81O) | WARNING | **0.94** |
-| 4 | `overload` | Surcharge Thermique Transformateur (ANSI 49) | WARNING | **0.57** (Précision 64%) |
-| 5 | `transformer_trip` | Déclenchement Transformateur (Buchholz/Diff) | CRITICAL | **0.65** |
-| 6 | `under_frequency` | Sous-Fréquence Réseau (ANSI 81U) | WARNING | **0.70** |
-| 7 | `voltage_sag` | Creux de Tension Réseau (ANSI 27) | WARNING | **0.93** |
+| 0 | `normal` | Fonctionnement Nominal | Normal | Modèle IA (GRU) |
+| 1 | `lg_fault` | Court-Circuit Ligne-Terre (LG) | CRITICAL | Modèle IA (GRU) |
+| 2 | `ll_fault` | Court-Circuit Entre Phases (LL) | CRITICAL | Modèle IA (GRU) |
+| 3 | `overload` | Surcharge Thermique Transformateur (ANSI 49) | WARNING | Modèle IA (GRU) |
+| 4 | `transformer_trip` | Déclenchement Transformateur (Buchholz/Diff) | CRITICAL | Modèle IA (GRU) |
+| 5 | `voltage_sag` | Creux de Tension Réseau (ANSI 27) | WARNING | Modèle IA (GRU) |
+| — | `under_frequency` | Sous-Fréquence Réseau (< 49.5 Hz) | CRITICAL | Règle Déterministe (ANSI 81U) |
+| — | `over_frequency` | Sur-Fréquence Réseau (> 50.5 Hz) | CRITICAL | Règle Déterministe (ANSI 81O) |
 
 ---
 

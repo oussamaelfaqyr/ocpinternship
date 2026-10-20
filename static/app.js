@@ -491,8 +491,8 @@ function initCharts() {
     state.charts.probs = new Chart(document.getElementById("chartProbabilities"), {
         type: 'bar',
         data: {
-            labels: ["Normal", "LG Fault", "LL Fault", "Overload", "Voltage Sag", "Under-Freq", "Over-Freq", "Trafo Trip"],
-            datasets: [{ label: 'Model Probability (%)', backgroundColor: '#006837', data: [100, 0, 0, 0, 0, 0, 0, 0] }]
+            labels: ["Normal", "LG Fault", "LL Fault", "Overload", "Trafo Trip", "Voltage Sag"],
+            datasets: [{ label: 'Model Probability (%)', backgroundColor: '#006837', data: [100, 0, 0, 0, 0, 0] }]
         },
         options: {
             responsive: true,
@@ -618,7 +618,7 @@ function renderAIDiagnosis() {
     // Update Probability Bar Chart
     if (aiRes.top_probs) {
         const probMap = aiRes.top_probs;
-        const labels = ["normal", "lg_fault", "ll_fault", "overload", "voltage_sag", "under_frequency", "over_frequency", "transformer_trip"];
+        const labels = ["normal", "lg_fault", "ll_fault", "overload", "transformer_trip", "voltage_sag"];
         const vals = labels.map(l => probMap[l] || 0.0);
         state.charts.probs.data.datasets[0].data = vals;
         state.charts.probs.update();

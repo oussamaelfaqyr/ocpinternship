@@ -323,11 +323,9 @@
                         <option value="transformer_trip">Transformer Trip (Buchholz/Diff)</option>
                         <option value="overload">Thermal Overload (ANSI 49)</option>
                         <option value="voltage_sag">Grid Voltage Sag (ANSI 27)</option>
-                        <option value="under_frequency">Under-Frequency (ANSI 81U)</option>
-                        <option value="over_frequency">Over-Frequency (ANSI 81O)</option>
                     </select>
                     <small style="color:#64748B; font-size:11px; margin-top:4px; display:block;">
-                        Note : Seules les 7 classes de défauts apprises par le modèle Deep GRU sont listées.
+                        5 classes de défauts IA. Les anomalies de fréquence sont détectées par seuil ANSI 81U/81O.
                     </small>
                 </div>
                 <div class="form-group">
@@ -531,59 +529,51 @@
                 <!-- SECTION 4: BENCHMARK & PERFORMANCE -->
                 <div class="details-section-title">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#006837" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.45 1-1 1H7v2h10v-2h-2c-.55 0-1-.45-1-1v-2.34c3.2-1.07 5-4.22 5-7.66H4c0 3.44 1.8 6.59 5 7.66z"></path></svg>
-                    4. Résultats & Performances Validées (One-Shot Test Set — 4958 Échantillons)
+                    4. Résultats & Performances Validées — 6 Classes (Test Set — 20 152 Échantillons)
                 </div>
                 <table class="scada-table" style="margin-bottom: 16px; border: 1px solid #E2E8F0; border-radius: 6px;">
                     <thead>
                         <tr>
-                            <th>Métrique Globale</th>
-                            <th>Baseline Initiale (E0)</th>
-                            <th>Champion Manuel (E3-B)</th>
-                            <th style="background: #ECFDF5; color: #006837; font-weight: 800;">Modèle Optuna Final (Production)</th>
+                            <th>Métrique</th>
+                            <th>GRU Baseline</th>
+                            <th style="background: #ECFDF5; color: #006837; font-weight: 800;">GRU E3-A (Champion)</th>
+                            <th>LSTM</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td><strong>Exactitude Globale (Accuracy)</strong></td>
-                            <td>78.40 %</td>
-                            <td>81.16 %</td>
-                            <td style="font-weight: 800; color: #006837; background: #F0FDF4;">82.35 % (Record Absolu)</td>
+                            <td><strong>Test Accuracy</strong></td>
+                            <td>97.60 %</td>
+                            <td style="font-weight: 800; color: #006837; background: #F0FDF4;">97.64 %</td>
+                            <td>97.67 %</td>
                         </tr>
                         <tr>
-                            <td><strong>F1-Score Pondéré (Weighted F1)</strong></td>
-                            <td>78.10 %</td>
-                            <td>80.79 %</td>
-                            <td style="font-weight: 800; color: #006837; background: #F0FDF4;">82.13 % (Record Absolu)</td>
+                            <td><strong>Test Weighted F1</strong></td>
+                            <td>97.41 %</td>
+                            <td style="font-weight: 800; color: #006837; background: #F0FDF4;">97.50 %</td>
+                            <td>97.49 %</td>
                         </tr>
                         <tr>
-                            <td><strong>Validation Macro-F1 (Optuna)</strong></td>
-                            <td>0.6700</td>
-                            <td>0.7298</td>
-                            <td style="font-weight: 800; color: #006837; background: #F0FDF4;">0.7715 (77.15 %)</td>
+                            <td><strong>Test Macro-F1</strong></td>
+                            <td>77.19 %</td>
+                            <td style="font-weight: 800; color: #006837; background: #F0FDF4;">79.26 %</td>
+                            <td>79.57 %</td>
                         </tr>
                         <tr>
-                            <td><strong>Détection Over-Frequency (81O)</strong></td>
-                            <td>88.20 %</td>
-                            <td>92.50 %</td>
-                            <td style="font-weight: 700; color: #006837; background: #F0FDF4;">94.00 % F1</td>
+                            <td><strong>Détection Voltage Sag (27)</strong></td>
+                            <td>76 % F1</td>
+                            <td style="font-weight: 700; color: #006837; background: #F0FDF4;">76 % F1</td>
+                            <td>79 % F1</td>
                         </tr>
                         <tr>
-                            <td><strong>Détection Grid Voltage Sag (27)</strong></td>
-                            <td>89.00 %</td>
-                            <td>92.30 %</td>
-                            <td style="font-weight: 700; color: #006837; background: #F0FDF4;">93.00 % F1</td>
+                            <td><strong>Détection Overload (49)</strong></td>
+                            <td>78 % F1</td>
+                            <td style="font-weight: 700; color: #006837; background: #F0FDF4;">78 % F1</td>
+                            <td>86 % F1</td>
                         </tr>
                         <tr>
-                            <td><strong>Détection Under-Frequency (81U)</strong></td>
-                            <td>61.40 %</td>
-                            <td>67.10 %</td>
-                            <td style="font-weight: 700; color: #006837; background: #F0FDF4;">70.00 % F1 (+40 détections)</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Précision Thermal Overload (49)</strong></td>
-                            <td>31.00 %</td>
-                            <td>58.10 %</td>
-                            <td style="font-weight: 700; color: #006837; background: #F0FDF4;">64.00 % Précision (57.0% F1)</td>
+                            <td><strong>Protection Fréquence</strong></td>
+                            <td colspan="3" style="text-align: center; color: #006837;">Seuil déterministe ANSI 81U (&lt;49.5 Hz) / 81O (&gt;50.5 Hz) — 100 % fiable</td>
                         </tr>
                     </tbody>
                 </table>

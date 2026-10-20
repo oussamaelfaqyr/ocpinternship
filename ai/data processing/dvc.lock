@@ -3,39 +3,35 @@ stages:
   data_preparation:
     cmd: python preprocessing_pipeline_v2.py
     deps:
-    - path: ../dataset/test_val.csv
+    - path: ../../dataset/train.csv
       hash: md5
-      md5: 4693b32e193b81fcd590d5115e9f12fc
-      size: 3121966
-    - path: ../dataset/train.csv
-      hash: md5
-      md5: 869791b7449f9f9763b958bfc2923c26
-      size: 48277695
+      md5: cfd259bde2d935fa62a37d6ea02ba2f8
+      size: 233602254
     - path: preprocessing_pipeline_v2.py
       hash: md5
-      md5: 7d98354263fb50adca072fb946884656
-      size: 24281
+      md5: dce0295dee2528317c034f660ef3cacf
+      size: 24386
     outs:
     - path: data/processed/label_vocab.json
       hash: md5
-      md5: b64722acc55d75f512a983edc3f18a51
-      size: 169
+      md5: a0727a90b7ec7a20bd4646c07e57333d
+      size: 120
     - path: data/processed/scaler.joblib
       hash: md5
-      md5: b46b4262916cd1fe5fd56cfc041d7ee6
-      size: 1167
+      md5: 3e4dc90173d678c2690c6b856269f138
+      size: 1159
     - path: data/processed/test_final.npz
       hash: md5
-      md5: eaca50f2a8e75d401aedd1d5b8914d4b
-      size: 3951921
+      md5: a14494be98e7fccb527d82fd6c80914c
+      size: 15672718
     - path: data/processed/train_final.npz
       hash: md5
-      md5: fd423156c0ec7ee239988d97cfdf6b80
-      size: 18628758
+      md5: fd459f0f6851a8eecda362a388302766
+      size: 75385808
     - path: data/processed/val_final.npz
       hash: md5
-      md5: b670e6084d411e298a79449e9a65eb1a
-      size: 3888233
+      md5: fd3d27885dd380ff5a32214a2499834e
+      size: 16235881
   model_training:
     cmd: python ../models/train_baseline.py
     deps:
@@ -45,14 +41,14 @@ stages:
       size: 15987
     - path: data/processed/train_final.npz
       hash: md5
-      md5: fd423156c0ec7ee239988d97cfdf6b80
-      size: 18628758
+      md5: fd459f0f6851a8eecda362a388302766
+      size: 75385808
     - path: data/processed/val_final.npz
       hash: md5
-      md5: b670e6084d411e298a79449e9a65eb1a
-      size: 3888233
+      md5: fd3d27885dd380ff5a32214a2499834e
+      size: 16235881
     outs:
     - path: ../models/saved_models/gru_baseline.pt
       hash: md5
-      md5: 5bbe1c1846d4ef7dbb5d83543696ecc5
-      size: 184597
+      md5: d203fb5463645375b53615ab30b9c2fa
+      size: 183317

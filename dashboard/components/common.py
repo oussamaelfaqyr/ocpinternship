@@ -11,10 +11,6 @@ FAULT_COLORS = {
     "overload":          "#F59E0B", # Amber
     "lg_fault":          "#EF4444", # Red
     "ll_fault":          "#A855F7", # Purple
-    "under_frequency":   "#EAB308", # Yellow
-    "over_frequency":    "#E879F9", # Pink
-    "source_outage":     "#6B7280", # Grey
-    "breaker_trip":      "#F97316", # Orange
     "transformer_trip":  "#EC4899", # Rose
 }
 
@@ -24,10 +20,6 @@ FAULT_LABELS = {
     "overload":          "Thermal Overload",
     "lg_fault":          "Line-to-Ground Fault",
     "ll_fault":          "Line-to-Line Fault",
-    "under_frequency":   "Under-Frequency (81U)",
-    "over_frequency":    "Over-Frequency (81O)",
-    "source_outage":     "Source Outage",
-    "breaker_trip":      "Breaker Trip",
     "transformer_trip":  "Transformer Trip",
 }
 
@@ -36,20 +28,14 @@ AI_RECOMMENDATIONS = {
     "ll_fault":          "Open phase CB. Inspect inter-phase insulation.",
     "overload":          "Shed non-critical loads. Check trafo cooling.",
     "voltage_sag":       "Monitor ONEE PCC. Verify tap changer position.",
-    "under_frequency":   "Prepare load shedding (81U). Check spinning reserve.",
-    "over_frequency":    "Reduce local generation or alert grid operator.",
-    "source_outage":     "Emergency switchover to diesel/backup generators.",
-    "breaker_trip":      "Inspect isolated feeder and perform line test.",
     "transformer_trip":  "Inspect Buchholz relay & oil temp before reclosing.",
     "normal":            "Grid operating nominally. No action required.",
 }
 
 AI_SEVERITY = {
     "lg_fault": "CRITICAL", "ll_fault": "CRITICAL",
-    "source_outage": "CRITICAL", "breaker_trip": "CRITICAL",
     "transformer_trip": "CRITICAL",
     "voltage_sag": "MODERATE", "overload": "MODERATE",
-    "under_frequency": "MODERATE", "over_frequency": "MODERATE",
     "normal": "NONE",
 }
 
